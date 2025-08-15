@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Planning App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Authentication Section -->
+        <div class="auth-section" id="authSection">
+            <div class="auth-container">
+                <h1>Meal Planning App</h1>
+                <p>Please sign in with Google to access your meal planning data</p>
+                <button class="auth-btn" id="signInBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Sign in with Google
+                </button>
+                <div class="auth-status" id="authStatus"></div>
+            </div>
+        </div>
+
+        <!-- Main App Content -->
+        <div class="main-content" id="mainContent" style="display: none;">
+        <header>
+            <div class="header-left">
+                <h1>Meal Planning</h1>
+                <div class="date-display" id="dateDisplay"></div>
+            </div>
+            <div class="header-right">
+                <button class="share-btn" id="shareBtn" title="Share with others">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                        <polyline points="16,6 12,2 8,6"></polyline>
+                        <line x1="12" y1="2" x2="12" y2="15"></line>
+                    </svg>
+                    Share
+                </button>
+                <div class="user-info" id="userInfo"></div>
+                <button class="small-btn" id="resetDataBtn" title="Create a new spreadsheet">Reset</button>
+                <button class="sign-out-btn" id="signOutBtn">Sign Out</button>
+            </div>
+        </header>
+        
+        <main class="dashboard">
+            <div class="navigation-container">
+                <button class="nav-arrow nav-left" id="prevMeal" disabled>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15,18 9,12 15,6"></polyline>
+                    </svg>
+                </button>
+                
+                <div class="meal-container">
+                    <div class="meal-card" id="mealCard">
+                        <div class="meal-header">
+                            <h2 class="meal-name" id="mealName">Loading...</h2>
+                            <div class="meal-time" id="mealTime"></div>
+                        </div>
+                        <div class="meal-items" id="mealItems">
+                            <!-- Meal items will be populated here -->
+                        </div>
+                        <div class="swipe-hint">
+                            💡 Swipe items left to replace, right to add to grocery & replace
+                        </div>
+                        <div class="meal-progress">
+                            <span class="current-meal" id="currentMeal">1</span>
+                            <span class="total-meals"> / <span id="totalMeals">0</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="nav-arrow nav-right" id="nextMeal" disabled>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9,18 15,12 9,6"></polyline>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="action-btn skip-btn" id="skipMeal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Skip
+                </button>
+                <button class="action-btn complete-btn" id="completeMeal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20,6 9,17 4,12"></polyline>
+                    </svg>
+                    Complete
+                </button>
+            </div>
+        </main>
+        
+        <!-- Spreadsheet Setup Section -->
+        <div class="setup-section" id="setupSection" style="display: none;">
+            <div class="setup-container">
+                <h2>Welcome to Meal Planning!</h2>
+                <p>We need to set up your Google Sheets for meal planning. Choose an option:</p>
+                
+                <div class="setup-options">
+                    <div class="setup-option">
+                        <h3>Create New Spreadsheet</h3>
+                        <p>We'll create a new Google Sheets with sample data to get you started. Perfect for new users or families wanting to start fresh.</p>
+                        <button class="setup-btn primary" id="createNewBtn">Create New Spreadsheet</button>
+                        <div class="setup-note">✨ Automatically shareable with family members</div>
+                    </div>
+                    
+                    <div class="setup-option">
+                        <h3>Use Existing Spreadsheet</h3>
+                        <p>Join an existing meal planning spreadsheet shared by a family member, or connect to your own existing sheet.</p>
+                        <input type="text" id="spreadsheetIdInput" placeholder="Paste your Google Sheets ID here" />
+                        <button class="setup-btn secondary" id="useExistingBtn">Use This Spreadsheet</button>
+                        <div class="setup-note">👨‍👩‍👧‍👦 Perfect for joining family meal planning</div>
+                    </div>
+                </div>
+                
+                <div class="setup-help">
+                    <details>
+                        <summary>How to find your Google Sheets ID</summary>
+                        <p>The spreadsheet ID is in the URL of your Google Sheet:</p>
+                        <code>https://docs.google.com/spreadsheets/d/<strong>SPREADSHEET_ID</strong>/edit</code>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <!-- Share Modal -->
+        <div class="modal-overlay" id="shareModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Share Meal Planner</h3>
+                    <button class="modal-close" onclick="closeShareModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="share-content">
+                        <p>Share this link with family members so you can collaborate on meal planning:</p>
+                        
+                        <div class="share-link-container">
+                            <input type="text" id="shareLink" readonly />
+                            <button class="copy-btn" id="copyLinkBtn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                Copy
+                            </button>
+                        </div>
+                        
+                        <div class="share-instructions">
+                            <h4>How it works:</h4>
+                            <ul>
+                                <li>Each person needs to set up Google OAuth (see setup instructions)</li>
+                                <li>Anyone with this link can access the same meal planning data</li>
+                                <li>Changes are automatically synced between all users</li>
+                                <li>All users can view, edit meals, and manage the grocery list</li>
+                            </ul>
+                        </div>
+
+                        <div class="share-info">
+                            <h4>Spreadsheet Details:</h4>
+                            <p><strong>Spreadsheet ID:</strong> <code id="spreadsheetIdDisplay"></code></p>
+                            <p><strong>Direct Google Sheets Link:</strong> 
+                                <a id="googleSheetsLink" href="" target="_blank">Open in Google Sheets</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div> <!-- Close main-content -->
+        
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner"></div>
+            <p>Loading meals...</p>
+        </div>
+        
+        <div class="error-message" id="errorMessage" style="display: none;">
+            <p id="errorText"></p>
+            <button onclick="hideError()">Dismiss</button>
+        </div>
+
+        <!-- Category Selection Modal -->
+        <div class="modal-overlay" id="categoryModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Select Replacement</h3>
+                    <button class="modal-close" onclick="closeCategoryModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="category-items" id="categoryItems">
+                        <!-- Category items will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script>
+        // Create a promise to track when Google Identity Services is loaded
+        window.googleIdentityServicesLoaded = new Promise((resolve, reject) => {
+            // Set a timeout in case the script fails to load
+            const timeout = setTimeout(() => {
+                reject(new Error('Google Identity Services script load timeout'));
+            }, 10000); // 10 second timeout
+            
+            // Create script element
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.onload = () => {
+                clearTimeout(timeout);
+                console.log('Google Identity Services script loaded');
+                
+                // Wait a bit more for the google object to be available
+                const checkGoogle = () => {
+                    if (typeof google !== 'undefined' && 
+                        google.accounts && 
+                        google.accounts.oauth2) {
+                        console.log('Google Identity Services fully available');
+                        resolve();
+                    } else {
+                        setTimeout(checkGoogle, 100);
+                    }
+                };
+                checkGoogle();
+            };
+            script.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error('Failed to load Google Identity Services script'));
+            };
+            document.head.appendChild(script);
+        });
+    </script>
+    <script src="config.js"></script>
+    <script src="googleSheetsApi.js"></script>
+    <script src="mealGenerator.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
