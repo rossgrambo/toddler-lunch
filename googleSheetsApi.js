@@ -299,13 +299,101 @@ class GoogleSheetsAPI {
         }
     }
 
+    async findSpreadsheetByName(spreadsheetName) {
+        try {
+            console.log(`Searching for spreadsheet with name: "${spreadsheetName}"`);
+            
+            // Use Google Drive API to search for spreadsheets with the specified name
+            // Include modifiedTime to sort by most recent
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(spreadsheetName)}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`, {
+                headers: {
+                    'Authorization': `Bearer ${this.accessToken}`
+                }
+            });
+            
+            if (!response.ok) {
+                console.error('Drive API search failed:', response.status, response.statusText);
+                return null;
+            }
+            
+            const data = await response.json();
+            
+            if (data.files && data.files.length > 0) {
+                // Check each spreadsheet to see if it has the correct structure
+                for (const file of data.files) {
+                    console.log(`Checking spreadsheet: ${file.name} (ID: ${file.id})`);
+                    
+                    // Verify this spreadsheet has the expected sheets
+                    if (await this.verifySpreadsheetStructure(file.id)) {
+                        console.log(`Found valid spreadsheet: ${file.name} (ID: ${file.id})`);
+                        return {
+                            id: file.id,
+                            name: file.name
+                        };
+                    } else {
+                        console.log(`Spreadsheet ${file.name} doesn't have the expected structure, skipping...`);
+                    }
+                }
+                
+                console.log(`Found ${data.files.length} spreadsheet(s) with name "${spreadsheetName}" but none have the correct structure`);
+                return null;
+            } else {
+                console.log(`No spreadsheet found with name: "${spreadsheetName}"`);
+                return null;
+            }
+        } catch (error) {
+            console.error('Error searching for spreadsheet by name:', error);
+            return null;
+        }
+    }
+
+    async verifySpreadsheetStructure(spreadsheetId) {
+        try {
+            // Get the spreadsheet metadata to check sheet names
+            const response = await gapi.client.sheets.spreadsheets.get({
+                spreadsheetId: spreadsheetId,
+                fields: 'sheets.properties.title'
+            });
+            
+            const existingSheetNames = response.result.sheets.map(sheet => sheet.properties.title);
+            const expectedSheetNames = Object.values(CONFIG.SHEETS);
+            
+            // Check if all expected sheets exist
+            const hasAllSheets = expectedSheetNames.every(sheetName => 
+                existingSheetNames.includes(sheetName)
+            );
+            
+            if (hasAllSheets) {
+                console.log(`Spreadsheet ${spreadsheetId} has all expected sheets:`, expectedSheetNames);
+                return true;
+            } else {
+                console.log(`Spreadsheet ${spreadsheetId} missing some sheets. Expected:`, expectedSheetNames, 'Found:', existingSheetNames);
+                return false;
+            }
+        } catch (error) {
+            console.error(`Error verifying spreadsheet structure for ${spreadsheetId}:`, error);
+            return false;
+        }
+    }
+
     async checkOrCreateSpreadsheet() {
         await this.ensureSignedIn();
 
-        // If no spreadsheet ID is configured, create a new one
+        // If no spreadsheet ID is configured, try to find existing spreadsheet by name first
         if (!CONFIG.SPREADSHEET_ID) {
-            console.log('No spreadsheet ID configured, creating new spreadsheet...');
-            return await this.createSpreadsheet();
+            console.log('No spreadsheet ID configured, searching for existing spreadsheet...');
+            const existingSpreadsheet = await this.findSpreadsheetByName(CONFIG.DEFAULT_SPREADSHEET_NAME);
+            
+            if (existingSpreadsheet) {
+                console.log('Found existing spreadsheet:', existingSpreadsheet.name, 'ID:', existingSpreadsheet.id);
+                CONFIG.SPREADSHEET_ID = existingSpreadsheet.id;
+                StorageHelper.saveSpreadsheetId(existingSpreadsheet.id);
+                StorageHelper.saveSpreadsheetName(existingSpreadsheet.name);
+                return existingSpreadsheet.id;
+            } else {
+                console.log('No existing spreadsheet found, creating new one...');
+                return await this.createSpreadsheet();
+            }
         }
 
         // Try to access the existing spreadsheet
@@ -314,11 +402,25 @@ class GoogleSheetsAPI {
             console.log('Existing spreadsheet is accessible');
             return CONFIG.SPREADSHEET_ID;
         } catch (error) {
-            console.log('Existing spreadsheet not accessible, creating new one...');
+            console.log('Existing spreadsheet not accessible, searching for spreadsheet by name...');
+            
             // Clear the invalid ID from storage
             StorageHelper.clearSpreadsheetId();
             CONFIG.SPREADSHEET_ID = null;
-            return await this.createSpreadsheet();
+            
+            // Try to find existing spreadsheet by name
+            const existingSpreadsheet = await this.findSpreadsheetByName(CONFIG.DEFAULT_SPREADSHEET_NAME);
+            
+            if (existingSpreadsheet) {
+                console.log('Found existing spreadsheet:', existingSpreadsheet.name, 'ID:', existingSpreadsheet.id);
+                CONFIG.SPREADSHEET_ID = existingSpreadsheet.id;
+                StorageHelper.saveSpreadsheetId(existingSpreadsheet.id);
+                StorageHelper.saveSpreadsheetName(existingSpreadsheet.name);
+                return existingSpreadsheet.id;
+            } else {
+                console.log('No existing spreadsheet found, creating new one...');
+                return await this.createSpreadsheet();
+            }
         }
     }
 

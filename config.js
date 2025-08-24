@@ -29,8 +29,8 @@ const CONFIG = {
     // Discovery document for Google Sheets API
     DISCOVERY_DOC: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
     
-    // OAuth 2.0 scopes - need Sheets and Drive file creation
-    SCOPES: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
+    // OAuth 2.0 scopes - need Sheets, Drive file creation, and Drive readonly for file search
+    SCOPES: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
     
     // Default spreadsheet name for auto-creation
     DEFAULT_SPREADSHEET_NAME: 'Toddler Meal Planner',

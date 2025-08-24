@@ -92,7 +92,8 @@ class MealPlanningApp {
             // Show main content and hide auth section
             this.showMainContent();
             
-            // Check or create spreadsheet
+            // Check or create spreadsheet with better progress updates
+            this.showLoading('Checking for existing meal planner spreadsheet...');
             await sheetsAPI.checkOrCreateSpreadsheet();
             
             // If no spreadsheet ID, show setup section
@@ -102,15 +103,18 @@ class MealPlanningApp {
             }
             
             // Test the connection
+            this.showLoading('Verifying spreadsheet access...');
             await sheetsAPI.testConnection();
             
             // Update date display
             this.updateDateDisplay();
             
             // Check if we need to handle a new day
+            this.showLoading('Checking for new day...');
             await this.checkAndHandleNewDay();
             
             // Load meals
+            this.showLoading('Loading your meals...');
             await this.loadMeals();
             
             this.hideLoading();
