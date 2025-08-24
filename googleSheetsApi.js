@@ -165,31 +165,10 @@ class GoogleSheetsAPI {
             // Initialize sheets with dummy data
             await this.initializeSheetsWithDummyData();
 
-            // Make the spreadsheet accessible to anyone with the link
-            await this.makeSpreadsheetPublic(spreadsheetId);
-
             return spreadsheetId;
         } catch (error) {
             console.error('Error creating spreadsheet:', error);
             throw new Error('Failed to create spreadsheet');
-        }
-    }
-
-    async makeSpreadsheetPublic(spreadsheetId) {
-        try {
-            // Make the file public (anyone with link can edit)
-            await gapi.client.request({
-                path: `https://www.googleapis.com/drive/v3/files/${spreadsheetId}/permissions`,
-                method: 'POST',
-                body: {
-                    role: 'writer',
-                    type: 'anyone'
-                }
-            });
-            console.log('Made spreadsheet public (anyone with link can edit)');
-        } catch (error) {
-            console.warn('Could not make spreadsheet public:', error);
-            // This is not critical - the user can still use the spreadsheet
         }
     }
 
