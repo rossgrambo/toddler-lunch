@@ -44,10 +44,8 @@ class GoogleSheetsAPI {
                         
                         // Save token if stay logged in is enabled
                         if (StorageHelper.loadStayLoggedInPreference()) {
-                            // OAuth tokens typically expire in 1 hour (3600 seconds)
                             const expiresIn = response.expires_in || 3600;
                             StorageHelper.saveAccessToken(response.access_token, expiresIn);
-                            console.log(`Access token saved, expires in ${expiresIn} seconds`);
                         }
                         
                         console.log('Successfully authenticated with Google Identity Services');
@@ -160,11 +158,22 @@ class GoogleSheetsAPI {
                         return;
                     }
                     
-                    this.accessToken = response.access_token;
-                    gapi.client.setToken({ access_token: response.access_token });
-                    this.isSignedIn = true;
-                    console.log('Successfully signed in');
-                    resolve(true);
+                    if (response.access_token) {
+                        this.accessToken = response.access_token;
+                        gapi.client.setToken({ access_token: response.access_token });
+                        this.isSignedIn = true;
+                        
+                        // Save token if stay logged in is enabled
+                        if (StorageHelper.loadStayLoggedInPreference()) {
+                            const expiresIn = response.expires_in || 3600;
+                            StorageHelper.saveAccessToken(response.access_token, expiresIn);
+                        }
+                        
+                        console.log('Successfully signed in');
+                        resolve(true);
+                    } else {
+                        reject(new Error('No access token received'));
+                    }
                 };
                 
                 this.tokenClient.requestAccessToken();

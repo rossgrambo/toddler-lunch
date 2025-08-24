@@ -137,7 +137,6 @@ class MealPlanningApp {
         
         // Stay logged in checkbox
         document.getElementById('stayLoggedInCheckbox').addEventListener('change', (e) => {
-            console.log('Stay logged in checkbox changed to:', e.target.checked);
             StorageHelper.saveStayLoggedInPreference(e.target.checked);
         });
         
@@ -196,17 +195,17 @@ class MealPlanningApp {
         const checkbox = document.getElementById('stayLoggedInCheckbox');
         const stayLoggedIn = StorageHelper.loadStayLoggedInPreference();
         checkbox.checked = stayLoggedIn;
-        console.log('Stay logged in preference loaded:', stayLoggedIn);
     }
 
     async signIn() {
         try {
             this.showAuthStatus('Signing in...', false);
             
-            // Get checkbox state before signing in
-            const stayLoggedIn = document.getElementById('stayLoggedInCheckbox').checked;
+            // Get checkbox state before signing in and save it immediately
+            const checkbox = document.getElementById('stayLoggedInCheckbox');
+            const stayLoggedIn = checkbox.checked;
             
-            // Save the preference
+            // Save the preference immediately before OAuth flow
             StorageHelper.saveStayLoggedInPreference(stayLoggedIn);
             
             await sheetsAPI.signIn();

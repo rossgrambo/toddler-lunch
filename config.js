@@ -146,9 +146,7 @@ const StorageHelper = {
     loadStayLoggedInPreference() {
         try {
             const preference = localStorage.getItem(CONFIG.STORAGE_KEYS.STAY_LOGGED_IN);
-            const result = preference === null ? true : preference === 'true'; // Default to true
-            console.log('Loading stay logged in preference:', preference, '→', result);
-            return result;
+            return preference === null ? true : preference === 'true'; // Default to true
         } catch (error) {
             console.warn('Could not load stay logged in preference:', error);
             return true; // Default to true
@@ -162,7 +160,7 @@ const StorageHelper = {
             localStorage.setItem(CONFIG.STORAGE_KEYS.ACCESS_TOKEN, token);
             localStorage.setItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY, expiryTime.toString());
         } catch (error) {
-            console.warn('Could not save access token:', error);
+            console.error('Could not save access token:', error);
         }
     },
     
