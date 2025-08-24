@@ -213,7 +213,7 @@ class GoogleSheetsAPI {
             if (!testResponse.ok) {
                 const errorData = await testResponse.json().catch(() => ({}));
                 if (testResponse.status === 403) {
-                    throw new Error('API key is valid but may not have sufficient permissions for Google Sheets API');
+                    throw new Error('API key is valid but may not have sufficient permissions for Google Sheets API, or the quota may be exceeded.');
                 } else if (testResponse.status === 400) {
                     throw new Error('Invalid API key format');
                 } else {
@@ -228,6 +228,7 @@ class GoogleSheetsAPI {
             await this.initializeWithApiKey(apiKey);
             
             console.log('Successfully authenticated with API key');
+            console.log('Note: API keys can only access publicly shared spreadsheets. Make sure your spreadsheet is shared as "Anyone with the link can view".');
             return true;
             
         } catch (error) {
@@ -311,13 +312,29 @@ class GoogleSheetsAPI {
     }
 
     isUserSignedIn() {
-        return this.isSignedIn && this.accessToken;
+        if (this.authMethod === 'apikey') {
+            return this.isSignedIn && this.apiKey;
+        } else {
+            return this.isSignedIn && this.accessToken;
+        }
     }
 
     async ensureSignedIn() {
         if (!this.isUserSignedIn()) {
             if (this.authMethod === 'apikey') {
-                throw new Error('API key authentication failed. Please check your API key.');
+                // For API key auth, try to reinitialize if not signed in
+                const apiKey = StorageHelper.loadApiKey();
+                if (apiKey) {
+                    try {
+                        await this.initializeWithApiKey(apiKey);
+                        return;
+                    } catch (error) {
+                        console.error('API key reinitialization failed:', error);
+                        throw new Error('API key authentication failed. Please check your API key.');
+                    }
+                } else {
+                    throw new Error('No API key found. Please provide an API key.');
+                }
             }
             await this.signIn();
         }
@@ -404,7 +421,11 @@ class GoogleSheetsAPI {
             console.error('Connection test failed:', error);
             
             if (error.status === 403) {
-                throw new Error('No permission to access this spreadsheet. Please check the spreadsheet ID or create a new one.');
+                if (this.authMethod === 'apikey') {
+                    throw new Error('Cannot access this spreadsheet with API key. The spreadsheet must be publicly shared (viewable by anyone with the link) to use API key authentication, or you can use OAuth instead. To make it public: Open the spreadsheet → Share → Change access to "Anyone with the link can view".');
+                } else {
+                    throw new Error('No permission to access this spreadsheet. Please check the spreadsheet ID or create a new one.');
+                }
             } else if (error.status === 404) {
                 throw new Error('Spreadsheet not found. It may have been deleted or the ID is incorrect.');
             } else {
@@ -516,6 +537,12 @@ class GoogleSheetsAPI {
             console.log('Existing spreadsheet is accessible');
             return CONFIG.SPREADSHEET_ID;
         } catch (error) {
+            // If spreadsheet ID came from URL parameter, don't search by name - just fail with clear message
+            if (CONFIG.SPREADSHEET_FROM_URL) {
+                console.log('Spreadsheet from URL parameter is not accessible');
+                throw new Error(`Cannot access spreadsheet with ID "${CONFIG.SPREADSHEET_ID}". Please check the spreadsheet ID in the URL and ensure you have permission to access it.`);
+            }
+            
             console.log('Existing spreadsheet not accessible, searching for spreadsheet by name...');
             
             // Clear the invalid ID from storage

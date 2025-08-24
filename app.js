@@ -70,12 +70,15 @@ class MealPlanningApp {
         
         if (urlSpreadsheetId) {
             CONFIG.SPREADSHEET_ID = urlSpreadsheetId;
+            CONFIG.SPREADSHEET_FROM_URL = true; // Flag to indicate it came from URL
             // Save to local storage for future visits
             StorageHelper.saveSpreadsheetId(urlSpreadsheetId);
         } else if (storedSpreadsheetId) {
             CONFIG.SPREADSHEET_ID = storedSpreadsheetId;
+            CONFIG.SPREADSHEET_FROM_URL = false;
         } else {
             CONFIG.SPREADSHEET_ID = null;
+            CONFIG.SPREADSHEET_FROM_URL = false;
         }
     }
 
