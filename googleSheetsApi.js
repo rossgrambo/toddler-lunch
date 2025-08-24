@@ -41,6 +41,15 @@ class GoogleSheetsAPI {
                         this.accessToken = response.access_token;
                         gapi.client.setToken({ access_token: response.access_token });
                         this.isSignedIn = true;
+                        
+                        // Save token if stay logged in is enabled
+                        if (StorageHelper.loadStayLoggedInPreference()) {
+                            // OAuth tokens typically expire in 1 hour (3600 seconds)
+                            const expiresIn = response.expires_in || 3600;
+                            StorageHelper.saveAccessToken(response.access_token, expiresIn);
+                            console.log(`Access token saved, expires in ${expiresIn} seconds`);
+                        }
+                        
                         console.log('Successfully authenticated with Google Identity Services');
                     }
                 },
@@ -48,6 +57,9 @@ class GoogleSheetsAPI {
 
             this.isInitialized = true;
             console.log('Google Sheets API initialized successfully');
+            
+            // Try to restore session if stay logged in is enabled
+            await this.tryRestoreSession();
             
         } catch (error) {
             console.error('Error initializing Google Sheets API:', error);
@@ -80,6 +92,54 @@ class GoogleSheetsAPI {
         }
         
         throw new Error('Google Identity Services library failed to load within timeout period');
+    }
+
+    async tryRestoreSession() {
+        // Only try to restore if stay logged in is enabled
+        if (!StorageHelper.loadStayLoggedInPreference()) {
+            console.log('Stay logged in disabled, skipping session restore');
+            return false;
+        }
+
+        const storedToken = StorageHelper.loadAccessToken();
+        if (!storedToken) {
+            console.log('No stored access token found');
+            return false;
+        }
+
+        try {
+            // Set the token and test if it's still valid
+            this.accessToken = storedToken;
+            gapi.client.setToken({ access_token: storedToken });
+            
+            // Test the token by making a simple API call to check token validity
+            // We'll use the drive API to get user info since it's more lightweight
+            const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + storedToken);
+            
+            if (!response.ok) {
+                throw new Error('Token validation failed');
+            }
+            
+            const tokenInfo = await response.json();
+            
+            // Check if token has the required scopes
+            if (!tokenInfo.scope || !tokenInfo.scope.includes('https://www.googleapis.com/auth/spreadsheets')) {
+                throw new Error('Token missing required scopes');
+            }
+            
+            // If we reach here, the token is valid
+            this.isSignedIn = true;
+            console.log('Successfully restored session from stored token');
+            return true;
+            
+        } catch (error) {
+            console.log('Stored access token is invalid or expired:', error.message);
+            StorageHelper.clearAccessToken();
+            this.accessToken = null;
+            gapi.client.setToken(null);
+            this.isSignedIn = false;
+            return false;
+        }
     }
 
     async signIn() {
@@ -122,6 +182,10 @@ class GoogleSheetsAPI {
             this.accessToken = null;
             gapi.client.setToken(null);
             this.isSignedIn = false;
+            
+            // Clear stored token regardless of stay logged in preference
+            StorageHelper.clearAccessToken();
+            
             console.log('Successfully signed out');
         }
     }

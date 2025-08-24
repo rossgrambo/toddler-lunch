@@ -31,9 +31,12 @@ class MealPlanningApp {
             // Set up event listeners
             this.setupEventListeners();
             
+            // Initialize checkbox state
+            this.initializeStayLoggedInCheckbox();
+            
             this.hideLoading();
             
-            // Check if user is already signed in
+            // Check if user is already signed in or can be auto-signed in
             if (sheetsAPI.isUserSignedIn()) {
                 await this.handleSignedInUser();
             } else {
@@ -132,6 +135,12 @@ class MealPlanningApp {
         document.getElementById('signInBtn').addEventListener('click', () => this.signIn());
         document.getElementById('signOutBtn').addEventListener('click', () => this.signOut());
         
+        // Stay logged in checkbox
+        document.getElementById('stayLoggedInCheckbox').addEventListener('change', (e) => {
+            console.log('Stay logged in checkbox changed to:', e.target.checked);
+            StorageHelper.saveStayLoggedInPreference(e.target.checked);
+        });
+        
         // Reset data functionality
         document.getElementById('resetDataBtn').addEventListener('click', () => this.resetData());
         
@@ -183,9 +192,23 @@ class MealPlanningApp {
         });
     }
 
+    initializeStayLoggedInCheckbox() {
+        const checkbox = document.getElementById('stayLoggedInCheckbox');
+        const stayLoggedIn = StorageHelper.loadStayLoggedInPreference();
+        checkbox.checked = stayLoggedIn;
+        console.log('Stay logged in preference loaded:', stayLoggedIn);
+    }
+
     async signIn() {
         try {
             this.showAuthStatus('Signing in...', false);
+            
+            // Get checkbox state before signing in
+            const stayLoggedIn = document.getElementById('stayLoggedInCheckbox').checked;
+            
+            // Save the preference
+            StorageHelper.saveStayLoggedInPreference(stayLoggedIn);
+            
             await sheetsAPI.signIn();
             this.showAuthStatus('Successfully signed in!', true);
             

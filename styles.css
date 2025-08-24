@@ -639,6 +639,75 @@ header h1 {
     border: 1px solid #ccffcc;
 }
 
+/* Stay Logged In Checkbox Styles */
+.stay-logged-in {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: white;
+    font-size: 0.95rem;
+    user-select: none;
+    position: relative;
+    padding-left: 30px;
+}
+
+.checkbox-container input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 20px;
+    width: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.checkbox-container:hover .checkmark {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+.checkbox-container input:checked ~ .checkmark {
+    background: #667eea;
+    border-color: #667eea;
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+    display: block;
+}
+
+.checkbox-container .checkmark:after {
+    left: 6px;
+    top: 2px;
+    width: 6px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
 /* Setup Section Styles */
 .setup-section {
     display: flex;

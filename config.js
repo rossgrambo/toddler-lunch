@@ -39,7 +39,10 @@ const CONFIG = {
     STORAGE_KEYS: {
         SPREADSHEET_ID: 'toddler_meal_planner_spreadsheet_id',
         SPREADSHEET_NAME: 'toddler_meal_planner_spreadsheet_name',
-        USER_PREFERENCES: 'toddler_meal_planner_preferences'
+        USER_PREFERENCES: 'toddler_meal_planner_preferences',
+        STAY_LOGGED_IN: 'toddler_meal_planner_stay_logged_in',
+        ACCESS_TOKEN: 'toddler_meal_planner_access_token',
+        TOKEN_EXPIRY: 'toddler_meal_planner_token_expiry'
     },
     
     // Dummy data for initial setup
@@ -129,6 +132,70 @@ const StorageHelper = {
     generateShareableUrl(spreadsheetId) {
         const baseUrl = window.location.origin + window.location.pathname;
         return `${baseUrl}?sheet=${spreadsheetId}`;
+    },
+    
+    // Stay logged in preferences
+    saveStayLoggedInPreference(stayLoggedIn) {
+        try {
+            localStorage.setItem(CONFIG.STORAGE_KEYS.STAY_LOGGED_IN, stayLoggedIn.toString());
+        } catch (error) {
+            console.warn('Could not save stay logged in preference:', error);
+        }
+    },
+    
+    loadStayLoggedInPreference() {
+        try {
+            const preference = localStorage.getItem(CONFIG.STORAGE_KEYS.STAY_LOGGED_IN);
+            const result = preference === null ? true : preference === 'true'; // Default to true
+            console.log('Loading stay logged in preference:', preference, '→', result);
+            return result;
+        } catch (error) {
+            console.warn('Could not load stay logged in preference:', error);
+            return true; // Default to true
+        }
+    },
+    
+    // Access token storage for stay logged in functionality
+    saveAccessToken(token, expiresIn = 3600) {
+        try {
+            const expiryTime = Date.now() + (expiresIn * 1000); // Convert seconds to milliseconds
+            localStorage.setItem(CONFIG.STORAGE_KEYS.ACCESS_TOKEN, token);
+            localStorage.setItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY, expiryTime.toString());
+        } catch (error) {
+            console.warn('Could not save access token:', error);
+        }
+    },
+    
+    loadAccessToken() {
+        try {
+            const token = localStorage.getItem(CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+            const expiryTime = localStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY);
+            
+            if (!token || !expiryTime) {
+                return null;
+            }
+            
+            // Check if token has expired
+            if (Date.now() >= parseInt(expiryTime)) {
+                console.log('Stored access token has expired');
+                this.clearAccessToken();
+                return null;
+            }
+            
+            return token;
+        } catch (error) {
+            console.warn('Could not load access token:', error);
+            return null;
+        }
+    },
+    
+    clearAccessToken() {
+        try {
+            localStorage.removeItem(CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+            localStorage.removeItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY);
+        } catch (error) {
+            console.warn('Could not clear access token:', error);
+        }
     }
 };
 
