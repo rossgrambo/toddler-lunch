@@ -1,13 +1,73 @@
-// Google Sheets API Integration with Google Identity Services (GIS)
+// Google Sheets API Integration with Google Identity Services (GIS) and API Key Support
 class GoogleSheetsAPI {
     constructor() {
         this.isInitialized = false;
         this.isSignedIn = false;
         this.accessToken = null;
         this.tokenClient = null;
+        this.authMethod = null; // 'oauth' or 'apikey'
+        this.apiKey = null;
     }
 
     async initialize() {
+        try {
+            // Check if we have an API key first
+            const storedApiKey = StorageHelper.loadApiKey();
+            if (storedApiKey) {
+                console.log('API key found, initializing with API key authentication');
+                return await this.initializeWithApiKey(storedApiKey);
+            }
+            
+            // Fall back to OAuth initialization
+            console.log('No API key found, initializing with OAuth');
+            return await this.initializeWithOAuth();
+            
+        } catch (error) {
+            console.error('Error initializing Google Sheets API:', error);
+            throw error;
+        }
+    }
+    
+    async initializeWithApiKey(apiKey) {
+        try {
+            // Check if required libraries are loaded
+            if (typeof gapi === 'undefined') {
+                throw new Error('Google API library not loaded');
+            }
+            
+            // Initialize the Google API client with API key
+            await new Promise((resolve, reject) => {
+                gapi.load('client', async () => {
+                    try {
+                        await gapi.client.init({
+                            apiKey: apiKey,
+                            discoveryDocs: [CONFIG.DISCOVERY_DOC],
+                        });
+                        console.log('Google API client initialized with API key');
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            });
+
+            this.apiKey = apiKey;
+            this.authMethod = 'apikey';
+            this.isSignedIn = true;
+            this.isInitialized = true;
+            
+            console.log('Google Sheets API initialized successfully with API key');
+            return true;
+            
+        } catch (error) {
+            console.error('Error initializing with API key:', error);
+            // If API key fails, clear it and fall back to OAuth
+            StorageHelper.clearApiKey();
+            throw new Error('Invalid API key. Please check your API key or use OAuth authentication.');
+        }
+    }
+    
+    async initializeWithOAuth() {
         try {
             // Check if required libraries are loaded
             if (typeof gapi === 'undefined') {
@@ -41,6 +101,7 @@ class GoogleSheetsAPI {
                         this.accessToken = response.access_token;
                         gapi.client.setToken({ access_token: response.access_token });
                         this.isSignedIn = true;
+                        this.authMethod = 'oauth';
                         
                         // Save token if stay logged in is enabled
                         if (StorageHelper.loadStayLoggedInPreference()) {
@@ -53,14 +114,15 @@ class GoogleSheetsAPI {
                 },
             });
 
+            this.authMethod = 'oauth';
             this.isInitialized = true;
-            console.log('Google Sheets API initialized successfully');
+            console.log('Google Sheets API initialized successfully with OAuth');
             
             // Try to restore session if stay logged in is enabled
             await this.tryRestoreSession();
             
         } catch (error) {
-            console.error('Error initializing Google Sheets API:', error);
+            console.error('Error initializing Google Sheets API with OAuth:', error);
             throw error;
         }
     }
@@ -93,9 +155,9 @@ class GoogleSheetsAPI {
     }
 
     async tryRestoreSession() {
-        // Only try to restore if stay logged in is enabled
-        if (!StorageHelper.loadStayLoggedInPreference()) {
-            console.log('Stay logged in disabled, skipping session restore');
+        // Only try to restore if stay logged in is enabled and we're using OAuth
+        if (this.authMethod !== 'oauth' || !StorageHelper.loadStayLoggedInPreference()) {
+            console.log('Skipping session restore (not OAuth or stay logged in disabled)');
             return false;
         }
 
@@ -140,6 +202,40 @@ class GoogleSheetsAPI {
         }
     }
 
+    async authenticateWithApiKey(apiKey) {
+        try {
+            console.log('Attempting to authenticate with API key');
+            
+            // Test the API key by making a simple request to the Sheets API
+            // We'll try to access a public spreadsheet first as a validation
+            const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/values/Class%20Data!A1:E1?key=${apiKey}`);
+            
+            if (!testResponse.ok) {
+                const errorData = await testResponse.json().catch(() => ({}));
+                if (testResponse.status === 403) {
+                    throw new Error('API key is valid but may not have sufficient permissions for Google Sheets API');
+                } else if (testResponse.status === 400) {
+                    throw new Error('Invalid API key format');
+                } else {
+                    throw new Error(`API key validation failed: ${errorData.error?.message || 'Unknown error'}`);
+                }
+            }
+            
+            // Save the API key
+            StorageHelper.saveApiKey(apiKey);
+            
+            // Reinitialize with the API key
+            await this.initializeWithApiKey(apiKey);
+            
+            console.log('Successfully authenticated with API key');
+            return true;
+            
+        } catch (error) {
+            console.error('API key authentication failed:', error);
+            throw new Error(error.message || 'Invalid API key. Please check your API key and try again.');
+        }
+    }
+
     async signIn() {
         if (!this.isInitialized) {
             await this.initialize();
@@ -149,6 +245,13 @@ class GoogleSheetsAPI {
             return true;
         }
 
+        // If we have an API key, we should already be signed in
+        if (this.authMethod === 'apikey') {
+            console.log('Already authenticated with API key');
+            return true;
+        }
+
+        // OAuth sign in
         try {
             // Request access token
             return new Promise((resolve, reject) => {
@@ -162,6 +265,7 @@ class GoogleSheetsAPI {
                         this.accessToken = response.access_token;
                         gapi.client.setToken({ access_token: response.access_token });
                         this.isSignedIn = true;
+                        this.authMethod = 'oauth';
                         
                         // Save token if stay logged in is enabled
                         if (StorageHelper.loadStayLoggedInPreference()) {
@@ -186,17 +290,24 @@ class GoogleSheetsAPI {
     }
 
     async signOut() {
-        if (this.accessToken) {
+        if (this.authMethod === 'oauth' && this.accessToken) {
             google.accounts.oauth2.revoke(this.accessToken);
             this.accessToken = null;
             gapi.client.setToken(null);
-            this.isSignedIn = false;
-            
-            // Clear stored token regardless of stay logged in preference
             StorageHelper.clearAccessToken();
-            
-            console.log('Successfully signed out');
+        } else if (this.authMethod === 'apikey') {
+            this.apiKey = null;
+            StorageHelper.clearApiKey();
         }
+        
+        this.isSignedIn = false;
+        this.authMethod = null;
+        
+        console.log('Successfully signed out');
+    }
+
+    getAuthMethod() {
+        return this.authMethod;
     }
 
     isUserSignedIn() {
@@ -205,6 +316,9 @@ class GoogleSheetsAPI {
 
     async ensureSignedIn() {
         if (!this.isUserSignedIn()) {
+            if (this.authMethod === 'apikey') {
+                throw new Error('API key authentication failed. Please check your API key.');
+            }
             await this.signIn();
         }
     }

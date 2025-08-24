@@ -139,6 +139,18 @@ class MealPlanningApp {
         document.getElementById('signInBtn').addEventListener('click', () => this.signIn());
         document.getElementById('signOutBtn').addEventListener('click', () => this.signOut());
         
+        // API key event listeners
+        document.getElementById('apiKeyToggleBtn').addEventListener('click', () => this.toggleApiKeySection());
+        document.getElementById('apiKeySaveBtn').addEventListener('click', () => this.saveApiKey());
+        document.getElementById('apiKeyCancelBtn').addEventListener('click', () => this.hideApiKeySection());
+        
+        // API key input enter key
+        document.getElementById('apiKeyInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.saveApiKey();
+            }
+        });
+        
         // Stay logged in checkbox
         document.getElementById('stayLoggedInCheckbox').addEventListener('change', (e) => {
             StorageHelper.saveStayLoggedInPreference(e.target.checked);
@@ -229,6 +241,12 @@ class MealPlanningApp {
         try {
             await sheetsAPI.signOut();
             this.currentUser = null;
+            
+            // Clear API key if it exists
+            if (StorageHelper.hasApiKey()) {
+                StorageHelper.clearApiKey();
+            }
+            
             // Don't clear the spreadsheet ID - keep it for next sign-in
             // CONFIG.SPREADSHEET_ID = null;
             this.showAuthSection();
@@ -395,6 +413,109 @@ class MealPlanningApp {
         document.getElementById('authSection').style.display = 'flex';
         document.getElementById('mainContent').style.display = 'none';
         document.getElementById('setupSection').style.display = 'none';
+        
+        // Check if we have an API key and update UI accordingly
+        this.updateAuthSectionForApiKey();
+    }
+    
+    updateAuthSectionForApiKey() {
+        const hasApiKey = StorageHelper.hasApiKey();
+        const signInBtn = document.getElementById('signInBtn');
+        const apiKeyToggle = document.getElementById('apiKeyToggleBtn');
+        
+        if (hasApiKey) {
+            // Hide OAuth button and API key toggle if we have an API key
+            signInBtn.style.display = 'none';
+            apiKeyToggle.textContent = 'Remove API key';
+        } else {
+            // Show OAuth button and API key toggle
+            signInBtn.style.display = 'flex';
+            apiKeyToggle.textContent = 'Supply an API key';
+        }
+    }
+    
+    toggleApiKeySection() {
+        const hasApiKey = StorageHelper.hasApiKey();
+        
+        if (hasApiKey) {
+            // Remove API key
+            this.removeApiKey();
+        } else {
+            // Show API key input
+            this.showApiKeySection();
+        }
+    }
+    
+    showApiKeySection() {
+        const apiKeySection = document.getElementById('apiKeySection');
+        apiKeySection.style.display = 'block';
+        
+        // Focus on the input
+        setTimeout(() => {
+            document.getElementById('apiKeyInput').focus();
+        }, 100);
+    }
+    
+    hideApiKeySection() {
+        const apiKeySection = document.getElementById('apiKeySection');
+        apiKeySection.style.display = 'none';
+        
+        // Clear the input
+        document.getElementById('apiKeyInput').value = '';
+    }
+    
+    async saveApiKey() {
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const apiKey = apiKeyInput.value.trim();
+        
+        if (!apiKey) {
+            this.showAuthStatus('Please enter an API key', false);
+            return;
+        }
+        
+        try {
+            this.showAuthStatus('Validating API key...', false);
+            
+            // Disable the save button while validating
+            const saveBtn = document.getElementById('apiKeySaveBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Validating...';
+            
+            // Test the API key
+            await sheetsAPI.authenticateWithApiKey(apiKey);
+            
+            // Hide the API key section
+            this.hideApiKeySection();
+            
+            // Update UI
+            this.updateAuthSectionForApiKey();
+            
+            this.showAuthStatus('API key saved successfully!', true);
+            
+            // Continue with signed in flow
+            setTimeout(async () => {
+                await this.handleSignedInUser();
+            }, 1000);
+            
+        } catch (error) {
+            console.error('API key validation failed:', error);
+            this.showAuthStatus(error.message || 'Invalid API key. Please check and try again.', false);
+        } finally {
+            // Re-enable the save button
+            const saveBtn = document.getElementById('apiKeySaveBtn');
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
+    }
+    
+    removeApiKey() {
+        const confirmed = confirm('Are you sure you want to remove the saved API key? You will need to authenticate again.');
+        
+        if (confirmed) {
+            StorageHelper.clearApiKey();
+            this.updateAuthSectionForApiKey();
+            this.showAuthStatus('API key removed. Please sign in to continue.', false);
+        }
     }
 
     showMainContent() {
@@ -406,6 +527,14 @@ class MealPlanningApp {
         let userInfoText = '';
         if (this.currentUser) {
             userInfoText = `Hello, ${this.currentUser.name}`;
+        }
+        
+        // Add authentication method info
+        const authMethod = sheetsAPI.getAuthMethod();
+        if (authMethod === 'apikey') {
+            userInfoText += ' | Using API Key';
+        } else if (authMethod === 'oauth') {
+            userInfoText += ' | OAuth';
         }
         
         // Add spreadsheet info

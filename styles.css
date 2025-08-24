@@ -657,6 +657,134 @@ header h1 {
     padding-left: 30px;
 }
 
+/* API Key Toggle Link */
+.api-key-toggle {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.api-key-link {
+    color: #667eea;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.3s ease;
+}
+
+.api-key-link:hover {
+    color: #5a6fd8;
+}
+
+/* API Key Input Section */
+.api-key-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.api-key-description {
+    margin-bottom: 15px;
+}
+
+.api-key-description p {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.api-key-help {
+    margin-top: 10px;
+    font-size: 0.85rem;
+}
+
+.api-key-help summary {
+    color: #667eea;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.api-key-help ol {
+    margin: 8px 0 0 0;
+    padding-left: 20px;
+    color: #666;
+}
+
+.api-key-help li {
+    margin-bottom: 4px;
+}
+
+.api-key-help a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.api-key-help a:hover {
+    text-decoration: underline;
+}
+
+.api-key-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.api-key-input-group input[type="password"] {
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: border-color 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.api-key-input-group input[type="password"]:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.api-key-input-group input[type="password"]::placeholder {
+    color: #999;
+}
+
+.api-key-save-btn, .api-key-cancel-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.api-key-save-btn {
+    background: #667eea;
+    color: white;
+}
+
+.api-key-save-btn:hover {
+    background: #5a6fd8;
+    transform: translateY(-1px);
+}
+
+.api-key-save-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.api-key-cancel-btn {
+    background: #f5f5f5;
+    color: #666;
+}
+
+.api-key-cancel-btn:hover {
+    background: #e9e9e9;
+    transform: translateY(-1px);
+}
+
 .checkbox-container input[type="checkbox"] {
     position: absolute;
     opacity: 0;

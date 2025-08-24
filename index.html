@@ -29,6 +29,29 @@
                         Stay logged in
                     </label>
                 </div>
+                <div class="api-key-toggle">
+                    <span class="api-key-link" id="apiKeyToggleBtn">Supply an API key</span>
+                </div>
+                <div class="api-key-section" id="apiKeySection" style="display: none;">
+                    <div class="api-key-description">
+                        <p>Enter your Google Sheets API key to authenticate without OAuth:</p>
+                        <details class="api-key-help">
+                            <summary>How to get an API key</summary>
+                            <ol>
+                                <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+                                <li>Create or select a project</li>
+                                <li>Enable Google Sheets API</li>
+                                <li>Go to "Credentials" and create an API key</li>
+                                <li>Restrict the key to Google Sheets API for security</li>
+                            </ol>
+                        </details>
+                    </div>
+                    <div class="api-key-input-group">
+                        <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." />
+                        <button class="api-key-save-btn" id="apiKeySaveBtn">Save</button>
+                        <button class="api-key-cancel-btn" id="apiKeyCancelBtn">Cancel</button>
+                    </div>
+                </div>
                 <div class="auth-status" id="authStatus"></div>
             </div>
         </div>
