@@ -1,69 +1,21 @@
-// Google Sheets API Integration with Google Identity Services (GIS) and API Key Support
+// Google Sheets API Integration with Google Identity Services (GIS)
 class GoogleSheetsAPI {
     constructor() {
         this.isInitialized = false;
         this.isSignedIn = false;
         this.accessToken = null;
         this.tokenClient = null;
-        this.authMethod = null; // 'oauth' or 'apikey'
-        this.apiKey = null;
     }
 
     async initialize() {
         try {
-            // Check if we have an API key first
-            const storedApiKey = StorageHelper.loadApiKey();
-            if (storedApiKey) {
-                console.log('API key found, initializing with API key authentication');
-                return await this.initializeWithApiKey(storedApiKey);
-            }
-            
-            // Fall back to OAuth initialization
-            console.log('No API key found, initializing with OAuth');
+            // Initialize with OAuth
+            console.log('Initializing with OAuth');
             return await this.initializeWithOAuth();
             
         } catch (error) {
             console.error('Error initializing Google Sheets API:', error);
             throw error;
-        }
-    }
-    
-    async initializeWithApiKey(apiKey) {
-        try {
-            // Check if required libraries are loaded
-            if (typeof gapi === 'undefined') {
-                throw new Error('Google API library not loaded');
-            }
-            
-            // Initialize the Google API client with API key
-            await new Promise((resolve, reject) => {
-                gapi.load('client', async () => {
-                    try {
-                        await gapi.client.init({
-                            apiKey: apiKey,
-                            discoveryDocs: [CONFIG.DISCOVERY_DOC],
-                        });
-                        console.log('Google API client initialized with API key');
-                        resolve();
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
-            });
-
-            this.apiKey = apiKey;
-            this.authMethod = 'apikey';
-            this.isSignedIn = true;
-            this.isInitialized = true;
-            
-            console.log('Google Sheets API initialized successfully with API key');
-            return true;
-            
-        } catch (error) {
-            console.error('Error initializing with API key:', error);
-            // If API key fails, clear it and fall back to OAuth
-            StorageHelper.clearApiKey();
-            throw new Error('Invalid API key. Please check your API key or use OAuth authentication.');
         }
     }
     
@@ -101,7 +53,6 @@ class GoogleSheetsAPI {
                         this.accessToken = response.access_token;
                         gapi.client.setToken({ access_token: response.access_token });
                         this.isSignedIn = true;
-                        this.authMethod = 'oauth';
                         
                         // Save token if stay logged in is enabled
                         if (StorageHelper.loadStayLoggedInPreference()) {
@@ -114,7 +65,6 @@ class GoogleSheetsAPI {
                 },
             });
 
-            this.authMethod = 'oauth';
             this.isInitialized = true;
             console.log('Google Sheets API initialized successfully with OAuth');
             
@@ -155,9 +105,9 @@ class GoogleSheetsAPI {
     }
 
     async tryRestoreSession() {
-        // Only try to restore if stay logged in is enabled and we're using OAuth
-        if (this.authMethod !== 'oauth' || !StorageHelper.loadStayLoggedInPreference()) {
-            console.log('Skipping session restore (not OAuth or stay logged in disabled)');
+        // Only try to restore if stay logged in is enabled
+        if (!StorageHelper.loadStayLoggedInPreference()) {
+            console.log('Skipping session restore (stay logged in disabled)');
             return false;
         }
 
@@ -202,53 +152,12 @@ class GoogleSheetsAPI {
         }
     }
 
-    async authenticateWithApiKey(apiKey) {
-        try {
-            console.log('Attempting to authenticate with API key');
-            
-            // Test the API key by making a simple request to the Sheets API
-            // We'll try to access a public spreadsheet first as a validation
-            const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/values/Class%20Data!A1:E1?key=${apiKey}`);
-            
-            if (!testResponse.ok) {
-                const errorData = await testResponse.json().catch(() => ({}));
-                if (testResponse.status === 403) {
-                    throw new Error('API key is valid but may not have sufficient permissions for Google Sheets API, or the quota may be exceeded.');
-                } else if (testResponse.status === 400) {
-                    throw new Error('Invalid API key format');
-                } else {
-                    throw new Error(`API key validation failed: ${errorData.error?.message || 'Unknown error'}`);
-                }
-            }
-            
-            // Save the API key
-            StorageHelper.saveApiKey(apiKey);
-            
-            // Reinitialize with the API key
-            await this.initializeWithApiKey(apiKey);
-            
-            console.log('Successfully authenticated with API key');
-            console.log('Note: API keys can only access publicly shared spreadsheets. Make sure your spreadsheet is shared as "Anyone with the link can view".');
-            return true;
-            
-        } catch (error) {
-            console.error('API key authentication failed:', error);
-            throw new Error(error.message || 'Invalid API key. Please check your API key and try again.');
-        }
-    }
-
     async signIn() {
         if (!this.isInitialized) {
             await this.initialize();
         }
 
         if (this.isSignedIn) {
-            return true;
-        }
-
-        // If we have an API key, we should already be signed in
-        if (this.authMethod === 'apikey') {
-            console.log('Already authenticated with API key');
             return true;
         }
 
@@ -266,7 +175,6 @@ class GoogleSheetsAPI {
                         this.accessToken = response.access_token;
                         gapi.client.setToken({ access_token: response.access_token });
                         this.isSignedIn = true;
-                        this.authMethod = 'oauth';
                         
                         // Save token if stay logged in is enabled
                         if (StorageHelper.loadStayLoggedInPreference()) {
@@ -291,51 +199,24 @@ class GoogleSheetsAPI {
     }
 
     async signOut() {
-        if (this.authMethod === 'oauth' && this.accessToken) {
+        if (this.accessToken) {
             google.accounts.oauth2.revoke(this.accessToken);
             this.accessToken = null;
             gapi.client.setToken(null);
             StorageHelper.clearAccessToken();
-        } else if (this.authMethod === 'apikey') {
-            this.apiKey = null;
-            StorageHelper.clearApiKey();
         }
         
         this.isSignedIn = false;
-        this.authMethod = null;
         
         console.log('Successfully signed out');
     }
 
-    getAuthMethod() {
-        return this.authMethod;
-    }
-
     isUserSignedIn() {
-        if (this.authMethod === 'apikey') {
-            return this.isSignedIn && this.apiKey;
-        } else {
-            return this.isSignedIn && this.accessToken;
-        }
+        return this.isSignedIn && this.accessToken;
     }
 
     async ensureSignedIn() {
         if (!this.isUserSignedIn()) {
-            if (this.authMethod === 'apikey') {
-                // For API key auth, try to reinitialize if not signed in
-                const apiKey = StorageHelper.loadApiKey();
-                if (apiKey) {
-                    try {
-                        await this.initializeWithApiKey(apiKey);
-                        return;
-                    } catch (error) {
-                        console.error('API key reinitialization failed:', error);
-                        throw new Error('API key authentication failed. Please check your API key.');
-                    }
-                } else {
-                    throw new Error('No API key found. Please provide an API key.');
-                }
-            }
             await this.signIn();
         }
     }
@@ -421,11 +302,7 @@ class GoogleSheetsAPI {
             console.error('Connection test failed:', error);
             
             if (error.status === 403) {
-                if (this.authMethod === 'apikey') {
-                    throw new Error('Cannot access this spreadsheet with API key. The spreadsheet must be publicly shared (viewable by anyone with the link) to use API key authentication, or you can use OAuth instead. To make it public: Open the spreadsheet → Share → Change access to "Anyone with the link can view".');
-                } else {
-                    throw new Error('No permission to access this spreadsheet. Please check the spreadsheet ID or create a new one.');
-                }
+                throw new Error('No permission to access this spreadsheet. Please check the spreadsheet ID or create a new one.');
             } else if (error.status === 404) {
                 throw new Error('Spreadsheet not found. It may have been deleted or the ID is incorrect.');
             } else {
@@ -746,6 +623,66 @@ class GoogleSheetsAPI {
             await this.writeRange(CONFIG.SHEETS.CURRENT, 'A1', data);
         } catch (error) {
             console.error('Error saving current meals:', error);
+            throw error;
+        }
+    }
+
+    async addMealToHistory(meal) {
+        try {
+            // Create history row from meal object
+            const mealDate = meal.date || getTodayString(); // fallback to today if no date
+            const row = [mealDate, meal.name];
+            for (let i = 0; i < 4; i++) {
+                const item = meal.items[i];
+                row.push(item ? (item.Item || item.name) : '');
+            }
+
+            // Append to history
+            await this.appendRange(CONFIG.SHEETS.HISTORY, [row]);
+            console.log(`Added meal "${meal.name}" to history`);
+        } catch (error) {
+            console.error('Error adding meal to history:', error);
+            throw error;
+        }
+    }
+
+    async moveCompletedToHistory() {
+        try {
+            const currentMeals = await this.getCurrentMeals();
+            if (currentMeals.length === 0) return;
+
+            // Filter only completed meals
+            const completedMeals = currentMeals.filter(meal => meal.status === 'completed');
+            if (completedMeals.length === 0) {
+                console.log('No completed meals to move to history');
+                return;
+            }
+
+            // Current meals already have date, so we can use them directly
+            const historyData = completedMeals.map(meal => {
+                const row = [meal.date, meal['meal name']];
+                for (let i = 1; i <= 4; i++) {
+                    row.push(meal[`item ${i}`] || '');
+                }
+                return row;
+            });
+
+            // Append to history
+            await this.appendRange(CONFIG.SHEETS.HISTORY, historyData);
+            console.log(`Moved ${completedMeals.length} completed meals to history`);
+            
+            // Remove completed meals from current
+            const remainingMeals = currentMeals.filter(meal => meal.status !== 'completed');
+            
+            // Clear current sheet first
+            await this.clearRange(CONFIG.SHEETS.CURRENT, 'A:Z');
+            
+            // Save remaining meals back to current sheet if any exist
+            if (remainingMeals.length > 0) {
+                await this.saveCurrentMeals(remainingMeals);
+            }
+        } catch (error) {
+            console.error('Error moving completed meals to history:', error);
             throw error;
         }
     }

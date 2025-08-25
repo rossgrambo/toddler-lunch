@@ -407,10 +407,29 @@ class MealGenerator {
 
     async handleNewDay() {
         try {
-            console.log('Handling new day - moving current to history');
+            console.log('Handling new day - moving completed meals to history and clearing old meals');
             
-            // Move current meals to history
-            await sheetsAPI.moveCurrentToHistory();
+            // Get current meals to check for completed ones
+            const currentMeals = await sheetsAPI.getCurrentMeals();
+            
+            if (currentMeals.length > 0) {
+                // Move only completed meals to history (if any)
+                const completedMeals = currentMeals.filter(meal => meal.status === 'completed');
+                if (completedMeals.length > 0) {
+                    const historyData = completedMeals.map(meal => {
+                        const row = [meal.date, meal['meal name']];
+                        for (let i = 1; i <= 4; i++) {
+                            row.push(meal[`item ${i}`] || '');
+                        }
+                        return row;
+                    });
+                    await sheetsAPI.appendRange(CONFIG.SHEETS.HISTORY, historyData);
+                    console.log(`Moved ${completedMeals.length} completed meals to history`);
+                }
+                
+                // Clear all current meals (both completed and incomplete from previous day)
+                await sheetsAPI.clearRange(CONFIG.SHEETS.CURRENT, 'A:Z');
+            }
             
             // Generate new meals for today
             await this.generateMealsForToday();

@@ -42,8 +42,7 @@ const CONFIG = {
         USER_PREFERENCES: 'toddler_meal_planner_preferences',
         STAY_LOGGED_IN: 'toddler_meal_planner_stay_logged_in',
         ACCESS_TOKEN: 'toddler_meal_planner_access_token',
-        TOKEN_EXPIRY: 'toddler_meal_planner_token_expiry',
-        API_KEY: 'toddler_meal_planner_api_key'
+        TOKEN_EXPIRY: 'toddler_meal_planner_token_expiry'
     },
     
     // Dummy data for initial setup
@@ -195,38 +194,6 @@ const StorageHelper = {
         } catch (error) {
             console.warn('Could not clear access token:', error);
         }
-    },
-    
-    // API key storage for backup authentication
-    saveApiKey(apiKey) {
-        try {
-            localStorage.setItem(CONFIG.STORAGE_KEYS.API_KEY, apiKey);
-            console.log('API key saved to local storage');
-        } catch (error) {
-            console.error('Could not save API key:', error);
-        }
-    },
-    
-    loadApiKey() {
-        try {
-            return localStorage.getItem(CONFIG.STORAGE_KEYS.API_KEY);
-        } catch (error) {
-            console.warn('Could not load API key:', error);
-            return null;
-        }
-    },
-    
-    clearApiKey() {
-        try {
-            localStorage.removeItem(CONFIG.STORAGE_KEYS.API_KEY);
-            console.log('API key removed from local storage');
-        } catch (error) {
-            console.warn('Could not clear API key:', error);
-        }
-    },
-    
-    hasApiKey() {
-        return !!this.loadApiKey();
     }
 };
 
