@@ -150,6 +150,9 @@ class MealPlanningApp {
         // Reset data functionality
         document.getElementById('resetDataBtn').addEventListener('click', () => this.resetData());
         
+        // Refresh functionality
+        document.getElementById('refreshBtn').addEventListener('click', () => window.location.reload());
+        
         // Setup event listeners
         document.getElementById('createNewBtn').addEventListener('click', () => this.createNewSpreadsheet());
         document.getElementById('useExistingBtn').addEventListener('click', () => this.useExistingSpreadsheet());
@@ -405,30 +408,6 @@ class MealPlanningApp {
         document.getElementById('authSection').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
         document.getElementById('setupSection').style.display = 'none';
-        
-        // Update user info
-        let userInfoText = '';
-        if (this.currentUser) {
-            userInfoText = `Hello, ${this.currentUser.name}`;
-        }
-        
-        // Add authentication method info
-        const authMethod = sheetsAPI.getAuthMethod();
-        if (authMethod === 'apikey') {
-            userInfoText += ' | Using API Key';
-        } else if (authMethod === 'oauth') {
-            userInfoText += ' | OAuth';
-        }
-        
-        // Add spreadsheet info
-        const spreadsheetName = StorageHelper.loadSpreadsheetName();
-        if (spreadsheetName) {
-            userInfoText += ` | Using: ${spreadsheetName}`;
-        }
-        
-        if (userInfoText) {
-            document.getElementById('userInfo').textContent = userInfoText;
-        }
     }
 
     showSetupSection() {
