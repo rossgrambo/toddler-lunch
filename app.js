@@ -1291,71 +1291,107 @@ class MealPlanningApp {
         
         if (items.length === 0) {
             container.innerHTML = '<div class="no-options">No options available for this category.</div>';
-            return;
+        } else {
+            // Create item elements
+            items.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'category-item';
+                
+                // Mark current item
+                if (item.Item === currentItem.name) {
+                    itemElement.classList.add('current');
+                }
+                
+                // Create item info section
+                const itemInfo = document.createElement('div');
+                itemInfo.className = 'category-item-info';
+                
+                const itemName = document.createElement('div');
+                itemName.className = 'category-item-name';
+                itemName.textContent = item.Item;
+                
+                const itemMeta = document.createElement('div');
+                itemMeta.className = 'category-item-meta';
+                
+                // Add categories
+                const categoriesContainer = document.createElement('div');
+                categoriesContainer.className = 'category-item-categories';
+                
+                const itemCategories = mealGenerator.getItemCategories(item);
+                itemCategories.forEach(category => {
+                    const tag = document.createElement('span');
+                    tag.className = `item-tag ${category.toLowerCase()}`;
+                    tag.textContent = category;
+                    categoriesContainer.appendChild(tag);
+                });
+                
+                // Add last used info
+                const lastUsed = document.createElement('div');
+                lastUsed.className = 'category-item-lastused';
+                const lastUsedDate = item['Last Used'] || 'never';
+                if (lastUsedDate === 'never') {
+                    lastUsed.textContent = 'Never used';
+                } else if (lastUsedDate.includes('T')) {
+                    // ISO timestamp
+                    const date = new Date(lastUsedDate);
+                    lastUsed.textContent = `Last used: ${date.toLocaleDateString()}`;
+                } else {
+                    lastUsed.textContent = `Last used: ${lastUsedDate}`;
+                }
+                
+                itemMeta.appendChild(categoriesContainer);
+                itemMeta.appendChild(lastUsed);
+                
+                itemInfo.appendChild(itemName);
+                itemInfo.appendChild(itemMeta);
+                
+                itemElement.appendChild(itemInfo);
+                
+                // Add delete button
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-item-btn';
+                deleteButton.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3,6 5,6 21,6"></polyline>
+                        <path d="M19,6V20a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6M8,6V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2V6"></path>
+                    </svg>
+                `;
+                deleteButton.title = 'Delete item';
+                deleteButton.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent item selection when clicking delete
+                    this.confirmDeleteItem(item);
+                });
+                
+                itemElement.appendChild(deleteButton);
+                
+                // Add click handler for item selection (excluding delete button)
+                itemInfo.addEventListener('click', () => {
+                    this.selectCategoryItem(item);
+                });
+                
+                container.appendChild(itemElement);
+            });
         }
         
-        // Create item elements
-        items.forEach(item => {
-            const itemElement = document.createElement('div');
-            itemElement.className = 'category-item';
-            
-            // Mark current item
-            if (item.Item === currentItem.name) {
-                itemElement.classList.add('current');
-            }
-            
-            // Create item info section
-            const itemInfo = document.createElement('div');
-            itemInfo.className = 'category-item-info';
-            
-            const itemName = document.createElement('div');
-            itemName.className = 'category-item-name';
-            itemName.textContent = item.Item;
-            
-            const itemMeta = document.createElement('div');
-            itemMeta.className = 'category-item-meta';
-            
-            // Add categories
-            const categoriesContainer = document.createElement('div');
-            categoriesContainer.className = 'category-item-categories';
-            
-            const itemCategories = mealGenerator.getItemCategories(item);
-            itemCategories.forEach(category => {
-                const tag = document.createElement('span');
-                tag.className = `item-tag ${category.toLowerCase()}`;
-                tag.textContent = category;
-                categoriesContainer.appendChild(tag);
-            });
-            
-            // Add last used info
-            const lastUsed = document.createElement('div');
-            lastUsed.className = 'category-item-lastused';
-            const lastUsedDate = item['Last Used'] || 'never';
-            if (lastUsedDate === 'never') {
-                lastUsed.textContent = 'Never used';
-            } else if (lastUsedDate.includes('T')) {
-                // ISO timestamp
-                const date = new Date(lastUsedDate);
-                lastUsed.textContent = `Last used: ${date.toLocaleDateString()}`;
-            } else {
-                lastUsed.textContent = `Last used: ${lastUsedDate}`;
-            }
-            
-            itemMeta.appendChild(categoriesContainer);
-            itemMeta.appendChild(lastUsed);
-            
-            itemInfo.appendChild(itemName);
-            itemInfo.appendChild(itemMeta);
-            
-            itemElement.appendChild(itemInfo);
-            
-            // Add click handler
-            itemElement.addEventListener('click', () => {
-                this.selectCategoryItem(item);
-            });
-            
-            container.appendChild(itemElement);
+        // Add "Add Item" button at the bottom
+        const addItemContainer = document.createElement('div');
+        addItemContainer.className = 'add-item-container';
+        
+        const addItemButton = document.createElement('button');
+        addItemButton.className = 'add-item-btn';
+        addItemButton.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add New Item
+        `;
+        addItemButton.addEventListener('click', () => {
+            this.showAddItemForm(categories);
         });
+        
+        addItemContainer.appendChild(addItemButton);
+        container.appendChild(addItemContainer);
     }
 
     async selectCategoryItem(selectedItem) {
@@ -1406,6 +1442,180 @@ class MealPlanningApp {
             modal.style.display = 'none';
             this.modalContext = null;
         }, 300);
+    }
+
+    async confirmDeleteItem(item) {
+        const confirmed = confirm(
+            `Are you sure you want to delete "${item.Item}"?\n\n` +
+            'This action cannot be undone and will remove the item from your Google Sheets.'
+        );
+        
+        if (!confirmed) {
+            return;
+        }
+        
+        try {
+            this.showLoading(`Deleting "${item.Item}"...`);
+            
+            // Delete from Google Sheets
+            await sheetsAPI.deleteItem(item.Item);
+            
+            // Refresh mealGenerator data to ensure consistency
+            await mealGenerator.loadData();
+            
+            // Refresh the modal to show updated list
+            await this.refreshCategoryModal();
+            
+            this.hideLoading();
+            this.showTemporaryMessage(`Successfully deleted "${item.Item}"`);
+            
+        } catch (error) {
+            console.error('Error deleting item:', error);
+            this.showError(`Failed to delete "${item.Item}". Please try again.`);
+            this.hideLoading();
+        }
+    }
+
+    async refreshCategoryModal() {
+        // Re-open the modal with fresh data
+        const { currentItem, itemIndex, categoriesToShow } = this.modalContext;
+        
+        // Load fresh data
+        await mealGenerator.loadData();
+        
+        // Get updated items for the categories
+        const availableItems = this.getItemsForCategories(categoriesToShow);
+        
+        // Re-populate the modal
+        this.populateCategoryModal(availableItems, currentItem, categoriesToShow);
+    }
+
+    showAddItemForm(categories) {
+        const container = document.getElementById('categoryItems');
+        
+        // Create add item form
+        const formContainer = document.createElement('div');
+        formContainer.className = 'add-item-form';
+        formContainer.innerHTML = `
+            <div class="add-item-header">
+                <h4>Add New Item</h4>
+                <button class="cancel-add-btn" type="button">Cancel</button>
+            </div>
+            <form class="add-item-form-content">
+                <div class="form-group">
+                    <label for="itemName">Item Name *</label>
+                    <input type="text" id="itemName" required placeholder="Enter item name">
+                </div>
+                
+                <div class="form-group">
+                    <label>Categories *</label>
+                    <div class="category-checkboxes">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="category" value="Carb" ${categories.includes('Carb') ? 'checked' : ''}>
+                            <span class="item-tag carb">Carb</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="category" value="Protein" ${categories.includes('Protein') ? 'checked' : ''}>
+                            <span class="item-tag protein">Protein</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="category" value="Fruit" ${categories.includes('Fruit') ? 'checked' : ''}>
+                            <span class="item-tag fruit">Fruit</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="category" value="Veggie" ${categories.includes('Veggie') ? 'checked' : ''}>
+                            <span class="item-tag veggie">Veggie</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="difficulty">Difficulty</label>
+                    <select id="difficulty">
+                        <option value="1">1 - ~1 min</option>
+                        <option value="2">2 - ~10 min</option>
+                        <option value="3">3 - ~30 min</option>
+                        <option value="4">4 - ~1 hr</option>
+                        <option value="5">5 - >1 hr</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="add-item-submit-btn">Add Item</button>
+                </div>
+            </form>
+        `;
+        
+        // Replace the container content with the form
+        container.innerHTML = '';
+        container.appendChild(formContainer);
+        
+        // Add event listeners
+        const cancelBtn = formContainer.querySelector('.cancel-add-btn');
+        const form = formContainer.querySelector('form');
+        
+        cancelBtn.addEventListener('click', () => {
+            this.refreshCategoryModal();
+        });
+        
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleAddItemSubmit(formContainer);
+        });
+        
+        // Focus on the name input
+        setTimeout(() => {
+            document.getElementById('itemName').focus();
+        }, 100);
+    }
+
+    async handleAddItemSubmit(formContainer) {
+        try {
+            const itemName = document.getElementById('itemName').value.trim();
+            const difficulty = document.getElementById('difficulty').value;
+            const selectedCategories = Array.from(formContainer.querySelectorAll('input[name="category"]:checked'))
+                .map(cb => cb.value);
+            
+            // Validation
+            if (!itemName) {
+                this.showError('Please enter an item name.');
+                return;
+            }
+            
+            if (selectedCategories.length === 0) {
+                this.showError('Please select at least one category.');
+                return;
+            }
+            
+            this.showLoading(`Adding "${itemName}"...`);
+            
+            // Prepare item data
+            const itemData = {
+                name: itemName,
+                carb: selectedCategories.includes('Carb') ? '1' : '0',
+                protein: selectedCategories.includes('Protein') ? '1' : '0',
+                fruit: selectedCategories.includes('Fruit') ? '1' : '0',
+                veggie: selectedCategories.includes('Veggie') ? '1' : '0',
+                difficulty: difficulty
+            };
+            
+            // Add to Google Sheets
+            await sheetsAPI.addItem(itemData);
+            
+            // Refresh mealGenerator data to ensure consistency
+            await mealGenerator.loadData();
+            
+            // Refresh the modal to show the new item
+            await this.refreshCategoryModal();
+            
+            this.hideLoading();
+            this.showTemporaryMessage(`Successfully added "${itemName}"`);
+            
+        } catch (error) {
+            console.error('Error adding item:', error);
+            this.showError('Failed to add item. Please try again.');
+            this.hideLoading();
+        }
     }
 }
 

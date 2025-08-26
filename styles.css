@@ -424,6 +424,7 @@ header h1 {
     cursor: pointer;
     transition: all 0.2s ease;
     background: white;
+    position: relative;
 }
 
 .category-item:hover {
@@ -438,6 +439,7 @@ header h1 {
     flex-direction: column;
     gap: 5px;
     flex: 1;
+    cursor: pointer;
 }
 
 .category-item-name {
@@ -478,6 +480,187 @@ header h1 {
     border-radius: 6px;
     font-size: 0.7rem;
     font-weight: 600;
+    position: absolute;
+    top: 10px;
+    right: 60px;
+}
+
+.delete-item-btn {
+    background: #ff6b6b;
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px;
+    flex-shrink: 0;
+}
+
+.delete-item-btn:hover {
+    background: #fa5252;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.delete-item-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.add-item-container {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #eee;
+}
+
+.add-item-btn {
+    width: 100%;
+    background: #667eea;
+    border: none;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.add-item-btn:hover {
+    background: #5a6fd8;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.add-item-form {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 10px;
+}
+
+.add-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #eee;
+}
+
+.add-item-header h4 {
+    margin: 0;
+    color: #333;
+    font-size: 1.1rem;
+}
+
+.cancel-add-btn {
+    background: #6c757d;
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancel-add-btn:hover {
+    background: #5a6268;
+}
+
+.add-item-form-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group select {
+    padding: 10px 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.category-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.checkbox-label .item-tag {
+    pointer-events: none;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .item-tag {
+    opacity: 1;
+}
+
+.form-actions {
+    margin-top: 10px;
+}
+
+.add-item-submit-btn {
+    width: 100%;
+    background: #28a745;
+    border: none;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.add-item-submit-btn:hover {
+    background: #218838;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .no-options {
@@ -1105,6 +1288,39 @@ header h1 {
         font-size: 2rem;
         margin-bottom: 5px;
     }
+    
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+    
+    .category-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 12px 15px;
+    }
+    
+    .category-item-info {
+        order: 1;
+    }
+    
+    .delete-item-btn {
+        order: 2;
+        align-self: flex-end;
+        margin-left: 0;
+    }
+    
+    .category-item.current::after {
+        position: static;
+        margin-top: 5px;
+        align-self: flex-start;
+    }
+    
+    .category-checkboxes {
+        flex-direction: column;
+        gap: 8px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1138,5 +1354,19 @@ header h1 {
         padding: 12px 20px;
         font-size: 1rem;
         min-width: 100px;
+    }
+    
+    .modal-content {
+        width: 98%;
+        margin: 10px;
+    }
+    
+    .add-item-form {
+        padding: 15px;
+    }
+    
+    .form-group input,
+    .form-group select {
+        font-size: 16px; /* Prevents zoom on iOS */
     }
 }

@@ -854,6 +854,134 @@ class GoogleSheetsAPI {
             throw error;
         }
     }
+
+    async deleteItem(itemName) {
+        try {
+            // Get all items to find the row
+            const allData = await this.readRange(CONFIG.SHEETS.ITEMS);
+            const headers = allData[0];
+            const itemIndex = headers.indexOf('Item');
+            
+            if (itemIndex === -1) {
+                throw new Error('Item column not found in items sheet');
+            }
+
+            // Find the item row to delete
+            let rowToDelete = -1;
+            for (let i = 1; i < allData.length; i++) {
+                if (allData[i][itemIndex] === itemName) {
+                    rowToDelete = i + 1; // 1-indexed
+                    break;
+                }
+            }
+
+            if (rowToDelete === -1) {
+                throw new Error(`Item "${itemName}" not found`);
+            }
+
+            // Get spreadsheet metadata to find the correct sheet ID for items
+            const spreadsheetResponse = await gapi.client.sheets.spreadsheets.get({
+                spreadsheetId: CONFIG.SPREADSHEET_ID
+            });
+            
+            const itemsSheet = spreadsheetResponse.result.sheets.find(sheet => 
+                sheet.properties.title.toLowerCase() === CONFIG.SHEETS.ITEMS.toLowerCase()
+            );
+            
+            if (!itemsSheet) {
+                throw new Error('Items sheet not found in spreadsheet');
+            }
+            
+            const itemsSheetId = itemsSheet.properties.sheetId;
+
+            // Use Google Sheets API to delete the row
+            const response = await gapi.client.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: CONFIG.SPREADSHEET_ID,
+                requests: [{
+                    deleteDimension: {
+                        range: {
+                            sheetId: itemsSheetId,
+                            dimension: 'ROWS',
+                            startIndex: rowToDelete - 1, // 0-indexed for the API
+                            endIndex: rowToDelete
+                        }
+                    }
+                }]
+            });
+
+            console.log(`Successfully deleted item: ${itemName}`);
+            return response.result;
+        } catch (error) {
+            console.error('Error deleting item:', error);
+            throw error;
+        }
+    }
+
+    async addItem(itemData) {
+        try {
+            // Get current items to understand the structure
+            const allData = await this.readRange(CONFIG.SHEETS.ITEMS);
+            if (allData.length === 0) {
+                throw new Error('Items sheet appears to be empty');
+            }
+
+            const headers = allData[0];
+            
+            // Check for duplicate item names
+            const existingItems = allData.slice(1);
+            const itemNameIndex = headers.indexOf('Item');
+            if (itemNameIndex !== -1) {
+                const existingItemNames = existingItems.map(row => row[itemNameIndex]?.toLowerCase());
+                if (existingItemNames.includes(itemData.name.toLowerCase())) {
+                    throw new Error(`An item named "${itemData.name}" already exists`);
+                }
+            }
+            
+            // Create a row with default values
+            const newRow = [];
+            headers.forEach(header => {
+                const headerLower = header.toLowerCase().trim();
+                switch (headerLower) {
+                    case 'item':
+                        newRow.push(itemData.name || '');
+                        break;
+                    case 'carb':
+                        newRow.push(itemData.carb || '0');
+                        break;
+                    case 'protein':
+                        newRow.push(itemData.protein || '0');
+                        break;
+                    case 'fruit':
+                        newRow.push(itemData.fruit || '0');
+                        break;
+                    case 'veggie':
+                        newRow.push(itemData.veggie || '0');
+                        break;
+                    case 'difficulty':
+                        newRow.push(itemData.difficulty || '1');
+                        break;
+                    case 'last used':
+                        newRow.push('never');
+                        break;
+                    case 'tags':
+                        newRow.push(''); // Leave tags empty for manual entry if needed
+                        break;
+                    default:
+                        newRow.push('');
+                        break;
+                }
+            });
+
+            // Append the new item
+            await this.appendRange(CONFIG.SHEETS.ITEMS, [newRow]);
+            console.log(`Successfully added item: ${itemData.name}`);
+            
+            return true;
+        } catch (error) {
+            console.error('Error adding item:', error);
+            throw error;
+        }
+    }
 }
 
 // Create global instance
