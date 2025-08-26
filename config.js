@@ -42,7 +42,8 @@ const CONFIG = {
         USER_PREFERENCES: 'toddler_meal_planner_preferences',
         STAY_LOGGED_IN: 'toddler_meal_planner_stay_logged_in',
         ACCESS_TOKEN: 'toddler_meal_planner_access_token',
-        TOKEN_EXPIRY: 'toddler_meal_planner_token_expiry'
+        TOKEN_EXPIRY: 'toddler_meal_planner_token_expiry',
+        LAST_SIGNED_IN_EMAIL: 'toddler_meal_planner_last_email'
     },
     
     // Dummy data for initial setup
@@ -193,6 +194,32 @@ const StorageHelper = {
             localStorage.removeItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY);
         } catch (error) {
             console.warn('Could not clear access token:', error);
+        }
+    },
+    
+    // Email hint for silent re-authentication
+    saveLastSignedInEmail(email) {
+        try {
+            localStorage.setItem(CONFIG.STORAGE_KEYS.LAST_SIGNED_IN_EMAIL, email);
+        } catch (error) {
+            console.warn('Could not save last signed in email:', error);
+        }
+    },
+    
+    getLastSignedInEmail() {
+        try {
+            return localStorage.getItem(CONFIG.STORAGE_KEYS.LAST_SIGNED_IN_EMAIL);
+        } catch (error) {
+            console.warn('Could not get last signed in email:', error);
+            return null;
+        }
+    },
+    
+    clearLastSignedInEmail() {
+        try {
+            localStorage.removeItem(CONFIG.STORAGE_KEYS.LAST_SIGNED_IN_EMAIL);
+        } catch (error) {
+            console.warn('Could not clear last signed in email:', error);
         }
     }
 };

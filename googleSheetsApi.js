@@ -5,6 +5,8 @@ class GoogleSheetsAPI {
         this.isSignedIn = false;
         this.accessToken = null;
         this.tokenClient = null;
+        this.silentAuthInterval = null;
+        this.tokenExpiryTime = null;
     }
 
     async initialize() {
@@ -54,9 +56,12 @@ class GoogleSheetsAPI {
                         gapi.client.setToken({ access_token: response.access_token });
                         this.isSignedIn = true;
                         
+                        // Calculate and store token expiry time
+                        const expiresIn = response.expires_in || 3600;
+                        this.tokenExpiryTime = Date.now() + (expiresIn * 1000);
+                        
                         // Save token if stay logged in is enabled
                         if (StorageHelper.loadStayLoggedInPreference()) {
-                            const expiresIn = response.expires_in || 3600;
                             StorageHelper.saveAccessToken(response.access_token, expiresIn);
                         }
                         
@@ -70,6 +75,11 @@ class GoogleSheetsAPI {
             
             // Try to restore session if stay logged in is enabled
             await this.tryRestoreSession();
+            
+            // Set up silent re-authentication if user is signed in
+            if (this.isSignedIn) {
+                this.setupSilentReAuth();
+            }
             
         } catch (error) {
             console.error('Error initializing Google Sheets API with OAuth:', error);
@@ -140,6 +150,13 @@ class GoogleSheetsAPI {
             // If we reach here, the token is valid
             this.isSignedIn = true;
             console.log('Successfully restored session from stored token');
+            
+            // Calculate token expiry time from stored info
+            const storedExpiry = localStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY);
+            if (storedExpiry) {
+                this.tokenExpiryTime = parseInt(storedExpiry);
+            }
+            
             return true;
             
         } catch (error) {
@@ -148,7 +165,103 @@ class GoogleSheetsAPI {
             this.accessToken = null;
             gapi.client.setToken(null);
             this.isSignedIn = false;
+            this.tokenExpiryTime = null;
             return false;
+        }
+    }
+
+    setupSilentReAuth() {
+        console.log('Setting up silent re-authentication (every hour)');
+        
+        // Clear any existing interval
+        if (this.silentAuthInterval) {
+            clearInterval(this.silentAuthInterval);
+        }
+        
+        // Set up interval to attempt silent re-auth every hour
+        this.silentAuthInterval = setInterval(() => {
+            this.attemptSilentReAuth();
+        }, 60 * 60 * 1000); // 1 hour
+        
+        // Also check token expiry every 10 minutes and refresh if needed
+        setInterval(() => {
+            this.checkAndRefreshToken();
+        }, 10 * 60 * 1000); // 10 minutes
+    }
+
+    async attemptSilentReAuth() {
+        if (!StorageHelper.loadStayLoggedInPreference()) {
+            console.log('Silent re-auth skipped (stay logged in disabled)');
+            return;
+        }
+        
+        try {
+            console.log('Attempting silent re-authentication...');
+            
+            // Use the token client with auto_select: true for silent auth
+            await new Promise((resolve, reject) => {
+                // Temporarily modify the callback to handle silent auth
+                const originalCallback = this.tokenClient.callback;
+                
+                this.tokenClient.callback = (response) => {
+                    if (response.access_token) {
+                        this.accessToken = response.access_token;
+                        gapi.client.setToken({ access_token: response.access_token });
+                        this.isSignedIn = true;
+                        
+                        // Calculate and store token expiry time
+                        const expiresIn = response.expires_in || 3600;
+                        this.tokenExpiryTime = Date.now() + (expiresIn * 1000);
+                        
+                        // Save the new token
+                        StorageHelper.saveAccessToken(response.access_token, expiresIn);
+                        
+                        console.log('Silent re-authentication successful');
+                        resolve();
+                    } else if (response.error) {
+                        console.log('Silent re-authentication failed:', response.error);
+                        reject(new Error(response.error));
+                    }
+                    
+                    // Restore original callback
+                    this.tokenClient.callback = originalCallback;
+                };
+                
+                // Request token silently
+                this.tokenClient.requestAccessToken({ prompt: '' }); // Empty prompt for silent
+                
+                // Set a timeout for silent auth
+                setTimeout(() => {
+                    this.tokenClient.callback = originalCallback;
+                    reject(new Error('Silent auth timeout'));
+                }, 5000);
+            });
+            
+        } catch (error) {
+            console.log('Silent re-authentication failed:', error.message);
+            // Don't show error to user for silent auth failures
+        }
+    }
+
+    async checkAndRefreshToken() {
+        if (!this.isSignedIn || !this.tokenExpiryTime) {
+            return;
+        }
+        
+        // Check if token expires in the next 15 minutes
+        const timeUntilExpiry = this.tokenExpiryTime - Date.now();
+        const fifteenMinutes = 15 * 60 * 1000;
+        
+        if (timeUntilExpiry < fifteenMinutes) {
+            console.log('Token expires soon, attempting refresh...');
+            await this.attemptSilentReAuth();
+        }
+    }
+
+    clearSilentReAuth() {
+        if (this.silentAuthInterval) {
+            clearInterval(this.silentAuthInterval);
+            this.silentAuthInterval = null;
         }
     }
 
@@ -176,11 +289,20 @@ class GoogleSheetsAPI {
                         gapi.client.setToken({ access_token: response.access_token });
                         this.isSignedIn = true;
                         
+                        // Calculate and store token expiry time
+                        const expiresIn = response.expires_in || 3600;
+                        this.tokenExpiryTime = Date.now() + (expiresIn * 1000);
+                        
                         // Save token if stay logged in is enabled
                         if (StorageHelper.loadStayLoggedInPreference()) {
-                            const expiresIn = response.expires_in || 3600;
                             StorageHelper.saveAccessToken(response.access_token, expiresIn);
                         }
+                        
+                        // Try to get user info and save email hint for future silent auth
+                        this.saveUserEmailHint();
+                        
+                        // Set up silent re-authentication
+                        this.setupSilentReAuth();
                         
                         console.log('Successfully signed in');
                         resolve(true);
@@ -198,6 +320,23 @@ class GoogleSheetsAPI {
         }
     }
 
+    async saveUserEmailHint() {
+        try {
+            // Try to get user info using the token
+            const response = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?access_token=' + this.accessToken);
+            if (response.ok) {
+                const userInfo = await response.json();
+                if (userInfo.email) {
+                    StorageHelper.saveLastSignedInEmail(userInfo.email);
+                    console.log('Saved user email hint for future silent auth');
+                }
+            }
+        } catch (error) {
+            console.log('Could not save user email hint:', error.message);
+            // This is not critical, so don't throw
+        }
+    }
+
     async signOut() {
         if (this.accessToken) {
             google.accounts.oauth2.revoke(this.accessToken);
@@ -206,7 +345,11 @@ class GoogleSheetsAPI {
             StorageHelper.clearAccessToken();
         }
         
+        // Clear silent re-auth
+        this.clearSilentReAuth();
+        
         this.isSignedIn = false;
+        this.tokenExpiryTime = null;
         
         console.log('Successfully signed out');
     }

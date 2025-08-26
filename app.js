@@ -92,6 +92,12 @@ class MealPlanningApp {
                 email: 'user@example.com'
             };
             
+            // Set up silent re-authentication if not already done
+            if (!sheetsAPI.silentAuthInterval && StorageHelper.loadStayLoggedInPreference()) {
+                sheetsAPI.setupSilentReAuth();
+                this.showSilentAuthIndicator();
+            }
+            
             // Show main content and hide auth section
             this.showMainContent();
             
@@ -144,7 +150,23 @@ class MealPlanningApp {
         
         // Stay logged in checkbox
         document.getElementById('stayLoggedInCheckbox').addEventListener('change', (e) => {
-            StorageHelper.saveStayLoggedInPreference(e.target.checked);
+            const stayLoggedIn = e.target.checked;
+            StorageHelper.saveStayLoggedInPreference(stayLoggedIn);
+            
+            // Enable or disable silent re-auth based on preference
+            if (sheetsAPI.isUserSignedIn()) {
+                if (stayLoggedIn) {
+                    if (!sheetsAPI.silentAuthInterval) {
+                        sheetsAPI.setupSilentReAuth();
+                        this.showSilentAuthIndicator();
+                    }
+                } else {
+                    sheetsAPI.clearSilentReAuth();
+                    this.hideSilentAuthIndicator();
+                    // Also clear stored tokens when user unchecks "stay logged in"
+                    StorageHelper.clearAccessToken();
+                }
+            }
         });
         
         // Reset data functionality
@@ -171,6 +193,13 @@ class MealPlanningApp {
         
         // Window focus event to check for new day
         window.addEventListener('focus', () => this.checkAndHandleNewDay());
+        
+        // Clean up silent auth interval on page unload
+        window.addEventListener('beforeunload', () => {
+            if (sheetsAPI) {
+                sheetsAPI.clearSilentReAuth();
+            }
+        });
         
         // Keyboard events
         document.addEventListener('keydown', (e) => {
@@ -235,6 +264,12 @@ class MealPlanningApp {
         try {
             await sheetsAPI.signOut();
             this.currentUser = null;
+            
+            // Clear stored email hint for security
+            StorageHelper.clearLastSignedInEmail();
+            
+            // Hide silent auth indicator
+            this.hideSilentAuthIndicator();
             
             // Don't clear the spreadsheet ID - keep it for next sign-in
             // CONFIG.SPREADSHEET_ID = null;
@@ -1151,6 +1186,20 @@ class MealPlanningApp {
 
     hideError() {
         document.getElementById('errorMessage').style.display = 'none';
+    }
+
+    showSilentAuthIndicator() {
+        const indicator = document.getElementById('authStatusIndicator');
+        if (indicator) {
+            indicator.style.display = 'flex';
+        }
+    }
+
+    hideSilentAuthIndicator() {
+        const indicator = document.getElementById('authStatusIndicator');
+        if (indicator) {
+            indicator.style.display = 'none';
+        }
     }
 
     // Category modal functionality
