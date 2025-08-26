@@ -946,16 +946,16 @@ class GoogleSheetsAPI {
                         newRow.push(itemData.name || '');
                         break;
                     case 'carb':
-                        newRow.push(itemData.carb || '0');
+                        newRow.push(itemData.carb === '1' ? 'y' : '');
                         break;
                     case 'protein':
-                        newRow.push(itemData.protein || '0');
+                        newRow.push(itemData.protein === '1' ? 'y' : '');
                         break;
                     case 'fruit':
-                        newRow.push(itemData.fruit || '0');
+                        newRow.push(itemData.fruit === '1' ? 'y' : '');
                         break;
                     case 'veggie':
-                        newRow.push(itemData.veggie || '0');
+                        newRow.push(itemData.veggie === '1' ? 'y' : '');
                         break;
                     case 'difficulty':
                         newRow.push(itemData.difficulty || '1');
