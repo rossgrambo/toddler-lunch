@@ -147,6 +147,7 @@ class MealPlanningApp {
         // Auth event listeners
         document.getElementById('signInBtn').addEventListener('click', () => this.signIn());
         document.getElementById('signOutBtn').addEventListener('click', () => this.signOut());
+        document.getElementById('authRefreshBtn').addEventListener('click', () => window.location.reload());
         
         // Stay logged in checkbox
         document.getElementById('stayLoggedInCheckbox').addEventListener('change', (e) => {
@@ -664,7 +665,7 @@ class MealPlanningApp {
             
             const rightIndicator = document.createElement('div');
             rightIndicator.className = 'swipe-indicator right';
-            rightIndicator.textContent = '🛒 + Replace';
+            rightIndicator.textContent = '↻ Replace';
             
             const itemName = document.createElement('div');
             itemName.className = 'item-name';
@@ -873,12 +874,9 @@ class MealPlanningApp {
 
     async handleSwipeEnd(element, item, itemIndex, currentX, threshold) {
         // Only handle the swipe action - visual reset is handled by the event handlers
-        if (currentX < -threshold) {
-            // Swipe left - replace item
+        if (currentX < -threshold || currentX > threshold) {
+            // Both left and right swipes just replace item (no grocery list addition)
             await this.replaceItem(itemIndex, false);
-        } else if (currentX > threshold) {
-            // Swipe right - add to grocery and replace item
-            await this.replaceItem(itemIndex, true);
         }
     }
 
@@ -890,7 +888,7 @@ class MealPlanningApp {
             console.log(`Replacing item: ${itemToReplace.Item || itemToReplace.name}`);
             
             // Show loading state
-            this.showLoading(addToGrocery ? 'Adding to grocery & finding replacement...' : 'Finding replacement...');
+            this.showLoading('Finding replacement...');
             
             // Ensure we have fresh data loaded before replacement
             await mealGenerator.loadData();
@@ -1289,8 +1287,32 @@ class MealPlanningApp {
         // Clear container
         container.innerHTML = '';
         
+        // Add "Add to grocery list" button at the top
+        const groceryButtonContainer = document.createElement('div');
+        groceryButtonContainer.className = 'grocery-button-container';
+        
+        const groceryButton = document.createElement('button');
+        groceryButton.className = 'add-to-grocery-btn';
+        groceryButton.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            Add "${currentItem.name}" to Grocery List
+        `;
+        groceryButton.addEventListener('click', () => {
+            this.addItemToGroceryFromModal(currentItem);
+        });
+        
+        groceryButtonContainer.appendChild(groceryButton);
+        container.appendChild(groceryButtonContainer);
+        
         if (items.length === 0) {
-            container.innerHTML = '<div class="no-options">No options available for this category.</div>';
+            const noOptionsDiv = document.createElement('div');
+            noOptionsDiv.className = 'no-options';
+            noOptionsDiv.textContent = 'No options available for this category.';
+            container.appendChild(noOptionsDiv);
         } else {
             // Create item elements
             items.forEach(item => {
@@ -1392,6 +1414,23 @@ class MealPlanningApp {
         
         addItemContainer.appendChild(addItemButton);
         container.appendChild(addItemContainer);
+    }
+
+    async addItemToGroceryFromModal(currentItem) {
+        try {
+            this.showLoading(`Adding "${currentItem.name}" to grocery list...`);
+            
+            // Add item to grocery list
+            await this.addToGroceryList(currentItem.name);
+            
+            this.hideLoading();
+            this.showTemporaryMessage(`Added "${currentItem.name}" to grocery list!`);
+            
+        } catch (error) {
+            console.error('Error adding item to grocery list:', error);
+            this.showError('Failed to add item to grocery list. Please try again.');
+            this.hideLoading();
+        }
     }
 
     async selectCategoryItem(selectedItem) {

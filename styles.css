@@ -512,6 +512,35 @@ header h1 {
     height: 16px;
 }
 
+.grocery-button-container {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #eee;
+}
+
+.add-to-grocery-btn {
+    width: 100%;
+    background: #28a745;
+    border: none;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.add-to-grocery-btn:hover {
+    background: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
+}
+
 .add-item-container {
     margin-top: 20px;
     padding-top: 20px;
@@ -801,6 +830,30 @@ header h1 {
     border-color: #667eea;
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.auth-refresh-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 15px;
+    color: #667eea;
+    align-self: flex-end;
+}
+
+.auth-refresh-btn:hover {
+    background: #f0f4ff;
+    border-color: #667eea;
+    transform: translateY(-1px);
 }
 
 .auth-status {
