@@ -10,7 +10,7 @@
 const CONFIG = {
     // Home Secrets Service Configuration
     HOME_SECRETS: {
-        BASE_URL: 'http://homeassistant.local:8126', // Your local secret service URL
+        BASE_URL: 'https://secretserver.local', // Your local secret service URL
         CLIENT_ID: 'toddler-lunch-app', // Client ID for this app
         // Redirect URI will be dynamically determined based on current URL
         get REDIRECT_URI() {
