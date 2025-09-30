@@ -1,19 +1,17 @@
-// Google Sheets API Integration with Google Identity Services (GIS)
+// Google Sheets API Integration with Home Secrets Service
 class GoogleSheetsAPI {
     constructor() {
         this.isInitialized = false;
         this.isSignedIn = false;
         this.accessToken = null;
-        this.tokenClient = null;
         this.silentAuthInterval = null;
-        this.tokenExpiryTime = null;
     }
 
     async initialize() {
         try {
-            // Initialize with OAuth
-            console.log('Initializing with OAuth');
-            return await this.initializeWithOAuth();
+            // Initialize with Home Secrets OAuth
+            console.log('Initializing with Home Secrets OAuth');
+            return await this.initializeWithHomeSecrets();
             
         } catch (error) {
             console.error('Error initializing Google Sheets API:', error);
@@ -21,15 +19,12 @@ class GoogleSheetsAPI {
         }
     }
     
-    async initializeWithOAuth() {
+    async initializeWithHomeSecrets() {
         try {
             // Check if required libraries are loaded
             if (typeof gapi === 'undefined') {
                 throw new Error('Google API library not loaded');
             }
-            
-            // Wait for Google Identity Services to load
-            await this.waitForGoogleIdentityServices();
 
             // Initialize the Google API client
             await new Promise((resolve, reject) => {
@@ -46,224 +41,79 @@ class GoogleSheetsAPI {
                 });
             });
 
-            // Initialize the Google Identity Services token client
-            this.tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CONFIG.OAUTH_CLIENT_ID,
-                scope: CONFIG.SCOPES,
-                callback: (response) => {
-                    if (response.access_token) {
-                        this.accessToken = response.access_token;
-                        gapi.client.setToken({ access_token: response.access_token });
-                        this.isSignedIn = true;
-                        
-                        // Calculate and store token expiry time
-                        const expiresIn = response.expires_in || 3600;
-                        this.tokenExpiryTime = Date.now() + (expiresIn * 1000);
-                        
-                        // Save token if stay logged in is enabled
-                        if (StorageHelper.loadStayLoggedInPreference()) {
-                            StorageHelper.saveAccessToken(response.access_token, expiresIn);
-                        }
-                        
-                        console.log('Successfully authenticated with Google Identity Services');
-                    }
-                },
-            });
+            // Initialize the home secrets client
+            // This will handle OAuth callback (if any) and check token validity
+            await homeSecretsClient.initialize(CONFIG.HOME_SECRETS);
 
             this.isInitialized = true;
-            console.log('Google Sheets API initialized successfully with OAuth');
+            console.log('Google Sheets API initialized successfully with Home Secrets');
             
-            // Try to restore session if stay logged in is enabled
-            await this.tryRestoreSession();
-            
-            // Set up silent re-authentication if user is signed in
-            if (this.isSignedIn) {
-                this.setupSilentReAuth();
+            // Update our sign-in status based on the token check
+            if (homeSecretsClient.isUserSignedIn()) {
+                console.log('Home Secrets client reports user is signed in - updating API status');
+                await this.updateSignInStatus();
+                this.setupTokenRefresh();
+            } else {
+                console.log('Home Secrets client reports user is not signed in');
+                this.isSignedIn = false;
+                this.accessToken = null;
             }
             
         } catch (error) {
-            console.error('Error initializing Google Sheets API with OAuth:', error);
+            console.error('Error initializing Google Sheets API with Home Secrets:', error);
             throw error;
         }
     }
 
-    async waitForGoogleIdentityServices(maxAttempts = 50) {
+    async updateSignInStatus() {
         try {
-            // Use the promise created in index.html
-            if (window.googleIdentityServicesLoaded) {
-                await window.googleIdentityServicesLoaded;
-                return;
-            }
-        } catch (error) {
-            console.error('Promise-based loading failed:', error);
-        }
-        
-        // Fallback to polling method
-        for (let i = 0; i < maxAttempts; i++) {
-            if (typeof google !== 'undefined' && 
-                google.accounts && 
-                google.accounts.oauth2 && 
-                google.accounts.oauth2.initTokenClient) {
-                return;
-            }
-            
-            // Wait 100ms before checking again
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        
-        throw new Error('Google Identity Services library failed to load within timeout period');
-    }
-
-    async tryRestoreSession() {
-        // Only try to restore if stay logged in is enabled
-        if (!StorageHelper.loadStayLoggedInPreference()) {
-            console.log('Skipping session restore (stay logged in disabled)');
-            return false;
-        }
-
-        const storedToken = StorageHelper.loadAccessToken();
-        if (!storedToken) {
-            console.log('No stored access token found');
-            return false;
-        }
-
-        try {
-            // Set the token and test if it's still valid
-            this.accessToken = storedToken;
-            gapi.client.setToken({ access_token: storedToken });
-            
-            // Test the token by making a simple API call to check token validity
-            // We'll use the drive API to get user info since it's more lightweight
-            const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + storedToken);
-            
-            if (!response.ok) {
-                throw new Error('Token validation failed');
-            }
-            
-            const tokenInfo = await response.json();
-            
-            // Check if token has the required scopes
-            if (!tokenInfo.scope || !tokenInfo.scope.includes('https://www.googleapis.com/auth/spreadsheets')) {
-                throw new Error('Token missing required scopes');
-            }
-            
-            // If we reach here, the token is valid
+            console.log('GoogleSheetsAPI: Attempting to get access token from homeSecretsClient...');
+            console.log('HomeSecretsClient isUserSignedIn:', homeSecretsClient.isUserSignedIn());
+            this.accessToken = await homeSecretsClient.getAccessToken();
+            gapi.client.setToken({ access_token: this.accessToken });
             this.isSignedIn = true;
-            console.log('Successfully restored session from stored token');
-            
-            // Calculate token expiry time from stored info
-            const storedExpiry = localStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY);
-            if (storedExpiry) {
-                this.tokenExpiryTime = parseInt(storedExpiry);
-            }
-            
-            return true;
-            
+            console.log('GoogleSheetsAPI: Updated sign-in status with Home Secrets token');
         } catch (error) {
-            console.log('Stored access token is invalid or expired:', error.message);
-            StorageHelper.clearAccessToken();
+            console.error('GoogleSheetsAPI: Error updating sign-in status:', error);
+            this.isSignedIn = false;
             this.accessToken = null;
             gapi.client.setToken(null);
-            this.isSignedIn = false;
-            this.tokenExpiryTime = null;
-            return false;
         }
     }
 
-    setupSilentReAuth() {
-        console.log('Setting up silent re-authentication (every hour)');
+    setupTokenRefresh() {
+        console.log('Setting up token refresh monitoring');
         
         // Clear any existing interval
         if (this.silentAuthInterval) {
             clearInterval(this.silentAuthInterval);
         }
         
-        // Set up interval to attempt silent re-auth every hour
-        this.silentAuthInterval = setInterval(() => {
-            this.attemptSilentReAuth();
-        }, 60 * 60 * 1000); // 1 hour
-        
-        // Also check token expiry every 10 minutes and refresh if needed
-        setInterval(() => {
-            this.checkAndRefreshToken();
+        // Check token status every 10 minutes and refresh if needed
+        this.silentAuthInterval = setInterval(async () => {
+            try {
+                if (homeSecretsClient.isUserSignedIn()) {
+                    await this.updateSignInStatus();
+                } else {
+                    console.log('Home secrets client indicates user is no longer signed in');
+                    this.isSignedIn = false;
+                    this.accessToken = null;
+                    gapi.client.setToken(null);
+                }
+            } catch (error) {
+                console.error('Error during token refresh check:', error);
+            }
         }, 10 * 60 * 1000); // 10 minutes
     }
 
-    async attemptSilentReAuth() {
-        if (!StorageHelper.loadStayLoggedInPreference()) {
-            console.log('Silent re-auth skipped (stay logged in disabled)');
-            return;
-        }
-        
-        try {
-            console.log('Attempting silent re-authentication...');
-            
-            // Use the token client with auto_select: true for silent auth
-            await new Promise((resolve, reject) => {
-                // Temporarily modify the callback to handle silent auth
-                const originalCallback = this.tokenClient.callback;
-                
-                this.tokenClient.callback = (response) => {
-                    if (response.access_token) {
-                        this.accessToken = response.access_token;
-                        gapi.client.setToken({ access_token: response.access_token });
-                        this.isSignedIn = true;
-                        
-                        // Calculate and store token expiry time
-                        const expiresIn = response.expires_in || 3600;
-                        this.tokenExpiryTime = Date.now() + (expiresIn * 1000);
-                        
-                        // Save the new token
-                        StorageHelper.saveAccessToken(response.access_token, expiresIn);
-                        
-                        console.log('Silent re-authentication successful');
-                        resolve();
-                    } else if (response.error) {
-                        console.log('Silent re-authentication failed:', response.error);
-                        reject(new Error(response.error));
-                    }
-                    
-                    // Restore original callback
-                    this.tokenClient.callback = originalCallback;
-                };
-                
-                // Request token silently
-                this.tokenClient.requestAccessToken({ prompt: '' }); // Empty prompt for silent
-                
-                // Set a timeout for silent auth
-                setTimeout(() => {
-                    this.tokenClient.callback = originalCallback;
-                    reject(new Error('Silent auth timeout'));
-                }, 5000);
-            });
-            
-        } catch (error) {
-            console.log('Silent re-authentication failed:', error.message);
-            // Don't show error to user for silent auth failures
-        }
-    }
-
-    async checkAndRefreshToken() {
-        if (!this.isSignedIn || !this.tokenExpiryTime) {
-            return;
-        }
-        
-        // Check if token expires in the next 15 minutes
-        const timeUntilExpiry = this.tokenExpiryTime - Date.now();
-        const fifteenMinutes = 15 * 60 * 1000;
-        
-        if (timeUntilExpiry < fifteenMinutes) {
-            console.log('Token expires soon, attempting refresh...');
-            await this.attemptSilentReAuth();
-        }
-    }
-
-    clearSilentReAuth() {
+    clearTokenRefresh() {
         if (this.silentAuthInterval) {
             clearInterval(this.silentAuthInterval);
             this.silentAuthInterval = null;
         }
     }
+
+
 
     async signIn() {
         if (!this.isInitialized) {
@@ -274,45 +124,14 @@ class GoogleSheetsAPI {
             return true;
         }
 
-        // OAuth sign in
         try {
-            // Request access token
-            return new Promise((resolve, reject) => {
-                this.tokenClient.callback = (response) => {
-                    if (response.error) {
-                        reject(new Error(response.error));
-                        return;
-                    }
-                    
-                    if (response.access_token) {
-                        this.accessToken = response.access_token;
-                        gapi.client.setToken({ access_token: response.access_token });
-                        this.isSignedIn = true;
-                        
-                        // Calculate and store token expiry time
-                        const expiresIn = response.expires_in || 3600;
-                        this.tokenExpiryTime = Date.now() + (expiresIn * 1000);
-                        
-                        // Save token if stay logged in is enabled
-                        if (StorageHelper.loadStayLoggedInPreference()) {
-                            StorageHelper.saveAccessToken(response.access_token, expiresIn);
-                        }
-                        
-                        // Try to get user info and save email hint for future silent auth
-                        this.saveUserEmailHint();
-                        
-                        // Set up silent re-authentication
-                        this.setupSilentReAuth();
-                        
-                        console.log('Successfully signed in');
-                        resolve(true);
-                    } else {
-                        reject(new Error('No access token received'));
-                    }
-                };
-                
-                this.tokenClient.requestAccessToken();
-            });
+            // Start OAuth flow with Home Secrets
+            console.log('Starting sign in with Home Secrets...');
+            await homeSecretsClient.signIn();
+            
+            // Note: The actual token exchange and redirect handling happens in homeSecretsClient
+            // This method initiates the flow but doesn't wait for completion
+            return true;
             
         } catch (error) {
             console.error('Sign in failed:', error);
@@ -320,47 +139,43 @@ class GoogleSheetsAPI {
         }
     }
 
-    async saveUserEmailHint() {
-        try {
-            // Try to get user info using the token
-            const response = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?access_token=' + this.accessToken);
-            if (response.ok) {
-                const userInfo = await response.json();
-                if (userInfo.email) {
-                    StorageHelper.saveLastSignedInEmail(userInfo.email);
-                    console.log('Saved user email hint for future silent auth');
-                }
-            }
-        } catch (error) {
-            console.log('Could not save user email hint:', error.message);
-            // This is not critical, so don't throw
-        }
-    }
+
 
     async signOut() {
-        if (this.accessToken) {
-            google.accounts.oauth2.revoke(this.accessToken);
+        try {
+            // Sign out through Home Secrets client
+            await homeSecretsClient.signOut();
+            
+            // Clear local state
             this.accessToken = null;
             gapi.client.setToken(null);
-            StorageHelper.clearAccessToken();
+            this.isSignedIn = false;
+            
+            // Clear token refresh
+            this.clearTokenRefresh();
+            
+            console.log('Successfully signed out');
+            
+        } catch (error) {
+            console.error('Error during sign out:', error);
+            // Still clear local state even if server-side logout fails
+            this.accessToken = null;
+            gapi.client.setToken(null);
+            this.isSignedIn = false;
+            this.clearTokenRefresh();
         }
-        
-        // Clear silent re-auth
-        this.clearSilentReAuth();
-        
-        this.isSignedIn = false;
-        this.tokenExpiryTime = null;
-        
-        console.log('Successfully signed out');
     }
 
     isUserSignedIn() {
-        return this.isSignedIn && this.accessToken;
+        return this.isSignedIn && homeSecretsClient.isUserSignedIn();
     }
 
     async ensureSignedIn() {
         if (!this.isUserSignedIn()) {
             await this.signIn();
+        } else {
+            // Ensure we have the latest token
+            await this.updateSignInStatus();
         }
     }
 

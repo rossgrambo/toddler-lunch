@@ -17,15 +17,16 @@ class MealPlanningApp {
                 throw new Error('Google API library not loaded. Please check your internet connection.');
             }
             
-            // Check OAuth client ID configuration
-            if (!CONFIG.OAUTH_CLIENT_ID || CONFIG.OAUTH_CLIENT_ID === 'YOUR_OAUTH_CLIENT_ID_HERE') {
-                throw new Error('OAuth Client ID not configured. Please check your config.js file.');
+            // Check Home Secrets configuration
+            if (!CONFIG.HOME_SECRETS || !CONFIG.HOME_SECRETS.BASE_URL) {
+                throw new Error('Home Secrets configuration not found. Please check your config.js file.');
             }
             
             // Check for spreadsheet ID from URL or local storage
             this.loadSpreadsheetIdFromSources();
             
-            // Initialize Google Sheets API
+            // Steps 1 & 2: Initialize Google Sheets API with Home Secrets
+            // This will handle OAuth callback (if any) and check token validity
             await sheetsAPI.initialize();
             
             // Set up event listeners
@@ -36,10 +37,14 @@ class MealPlanningApp {
             
             this.hideLoading();
             
-            // Check if user is already signed in or can be auto-signed in
+            // Steps 3 & 4: Either show login or start the app based on token validity
             if (sheetsAPI.isUserSignedIn()) {
+                // Step 4: We have a valid token - start the app
+                console.log('Valid token found - starting app...');
                 await this.handleSignedInUser();
             } else {
+                // Step 3: No valid token - show login screen
+                console.log('No valid token - showing login screen');
                 this.showAuthSection();
             }
             
@@ -48,10 +53,8 @@ class MealPlanningApp {
             
             // Provide more specific error messages
             let errorMessage = 'Failed to initialize app. ';
-            if (error.message.includes('Google Identity Services')) {
-                errorMessage += 'Google authentication service failed to load. Please refresh the page and try again.';
-            } else if (error.message.includes('OAuth Client ID')) {
-                errorMessage += 'Please check your OAuth configuration in config.js.';
+            if (error.message.includes('Home Secrets')) {
+                errorMessage += 'Home Secrets service configuration error. Please check your config.js file.';
             } else if (error.message.includes('Google API library')) {
                 errorMessage += 'Please check your internet connection and refresh the page.';
             } else {
@@ -92,9 +95,9 @@ class MealPlanningApp {
                 email: 'user@example.com'
             };
             
-            // Set up silent re-authentication if not already done
-            if (!sheetsAPI.silentAuthInterval && StorageHelper.loadStayLoggedInPreference()) {
-                sheetsAPI.setupSilentReAuth();
+            // Set up token refresh monitoring if stay logged in is enabled
+            if (StorageHelper.loadStayLoggedInPreference()) {
+                sheetsAPI.setupTokenRefresh();
                 this.showSilentAuthIndicator();
             }
             
@@ -154,18 +157,18 @@ class MealPlanningApp {
             const stayLoggedIn = e.target.checked;
             StorageHelper.saveStayLoggedInPreference(stayLoggedIn);
             
-            // Enable or disable silent re-auth based on preference
+            // Enable or disable token refresh monitoring based on preference
             if (sheetsAPI.isUserSignedIn()) {
                 if (stayLoggedIn) {
                     if (!sheetsAPI.silentAuthInterval) {
-                        sheetsAPI.setupSilentReAuth();
+                        sheetsAPI.setupTokenRefresh();
                         this.showSilentAuthIndicator();
                     }
                 } else {
-                    sheetsAPI.clearSilentReAuth();
+                    sheetsAPI.clearTokenRefresh();
                     this.hideSilentAuthIndicator();
                     // Also clear stored tokens when user unchecks "stay logged in"
-                    StorageHelper.clearAccessToken();
+                    homeSecretsClient.clearStoredTokens();
                 }
             }
         });
@@ -195,10 +198,10 @@ class MealPlanningApp {
         // Window focus event to check for new day
         window.addEventListener('focus', () => this.checkAndHandleNewDay());
         
-        // Clean up silent auth interval on page unload
+        // Clean up token refresh interval on page unload
         window.addEventListener('beforeunload', () => {
             if (sheetsAPI) {
-                sheetsAPI.clearSilentReAuth();
+                sheetsAPI.clearTokenRefresh();
             }
         });
         
@@ -266,10 +269,7 @@ class MealPlanningApp {
             await sheetsAPI.signOut();
             this.currentUser = null;
             
-            // Clear stored email hint for security
-            StorageHelper.clearLastSignedInEmail();
-            
-            // Hide silent auth indicator
+            // Hide token refresh indicator
             this.hideSilentAuthIndicator();
             
             // Don't clear the spreadsheet ID - keep it for next sign-in

@@ -219,42 +219,8 @@
     </div>
     
     <script src="https://apis.google.com/js/api.js"></script>
-    <script>
-        // Create a promise to track when Google Identity Services is loaded
-        window.googleIdentityServicesLoaded = new Promise((resolve, reject) => {
-            // Set a timeout in case the script fails to load
-            const timeout = setTimeout(() => {
-                reject(new Error('Google Identity Services script load timeout'));
-            }, 10000); // 10 second timeout
-            
-            // Create script element
-            const script = document.createElement('script');
-            script.src = 'https://accounts.google.com/gsi/client';
-            script.onload = () => {
-                clearTimeout(timeout);
-                console.log('Google Identity Services script loaded');
-                
-                // Wait a bit more for the google object to be available
-                const checkGoogle = () => {
-                    if (typeof google !== 'undefined' && 
-                        google.accounts && 
-                        google.accounts.oauth2) {
-                        console.log('Google Identity Services fully available');
-                        resolve();
-                    } else {
-                        setTimeout(checkGoogle, 100);
-                    }
-                };
-                checkGoogle();
-            };
-            script.onerror = () => {
-                clearTimeout(timeout);
-                reject(new Error('Failed to load Google Identity Services script'));
-            };
-            document.head.appendChild(script);
-        });
-    </script>
     <script src="config.js"></script>
+    <script src="homeSecretsClient.js"></script>
     <script src="googleSheetsApi.js"></script>
     <script src="mealGenerator.js"></script>
     <script src="app.js"></script>

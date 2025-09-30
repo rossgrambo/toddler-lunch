@@ -8,11 +8,28 @@
 // 6. Replace YOUR_OAUTH_CLIENT_ID with your actual OAuth client ID
 
 const CONFIG = {
-    // OAuth 2.0 Client ID (from Google Cloud Console)
-    OAUTH_CLIENT_ID: '299407634606-m18r8n1kl084ikurl78snckimfcu13kg.apps.googleusercontent.com',
+    // Home Secrets Service Configuration
+    HOME_SECRETS: {
+        BASE_URL: 'http://homeassistant.local:8126', // Your local secret service URL
+        CLIENT_ID: 'toddler-lunch-app', // Client ID for this app
+        // Redirect URI will be dynamically determined based on current URL
+        get REDIRECT_URI() {
+            // Auto-detect the redirect URI based on current page
+            const currentOrigin = window.location.origin;
+            const currentPath = window.location.pathname;
+            
+            if (currentOrigin.includes('github.io')) {
+                // GitHub Pages: https://rossgrambo.github.io/toddler-lunch/
+                return `${currentOrigin}${currentPath}`;
+            } else {
+                // Local development: http://localhost:8000/
+                return `${currentOrigin}/`;
+            }
+        }
+    },
     
-    // Authentication method: now using OAuth 2.0
-    AUTH_METHOD: 'oauth',
+    // Authentication method: using local secret service with OAuth 2.0 + PKCE
+    AUTH_METHOD: 'home-secrets',
     
     // Your Google Spreadsheet ID (will be auto-created if it doesn't exist)
     SPREADSHEET_ID: null, // Will be set after spreadsheet creation or user input
@@ -41,9 +58,9 @@ const CONFIG = {
         SPREADSHEET_NAME: 'toddler_meal_planner_spreadsheet_name',
         USER_PREFERENCES: 'toddler_meal_planner_preferences',
         STAY_LOGGED_IN: 'toddler_meal_planner_stay_logged_in',
-        ACCESS_TOKEN: 'toddler_meal_planner_access_token',
-        TOKEN_EXPIRY: 'toddler_meal_planner_token_expiry',
-        LAST_SIGNED_IN_EMAIL: 'toddler_meal_planner_last_email'
+        // Token storage now handled by homeSecretsClient
+        HOME_SECRETS_TOKENS: 'home_secrets_tokens',
+        API_KEY: 'toddler_meal_planner_api_key'
     },
     
     // Dummy data for initial setup
@@ -129,6 +146,16 @@ const StorageHelper = {
         return urlParams.get('sheet') || urlParams.get('spreadsheet');
     },
     
+    // Get API key from URL parameter for Home Secrets service
+    getApiKeyFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const apiKey = urlParams.get('api-key');
+        console.log('StorageHelper.getApiKeyFromUrl() - URL params:', window.location.search);
+        console.log('StorageHelper.getApiKeyFromUrl() - All params:', Object.fromEntries(urlParams.entries()));
+        console.log('StorageHelper.getApiKeyFromUrl() - API key found:', apiKey);
+        return apiKey;
+    },
+    
     // Generate shareable URL for current spreadsheet
     generateShareableUrl(spreadsheetId) {
         const baseUrl = window.location.origin + window.location.pathname;
@@ -153,73 +180,38 @@ const StorageHelper = {
             return true; // Default to true
         }
     },
-    
-    // Access token storage for stay logged in functionality
-    saveAccessToken(token, expiresIn = 3600) {
+
+    // API key storage for Home Secrets service
+    saveApiKey(apiKey) {
         try {
-            const expiryTime = Date.now() + (expiresIn * 1000); // Convert seconds to milliseconds
-            localStorage.setItem(CONFIG.STORAGE_KEYS.ACCESS_TOKEN, token);
-            localStorage.setItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY, expiryTime.toString());
+            if (apiKey) {
+                localStorage.setItem(CONFIG.STORAGE_KEYS.API_KEY, apiKey);
+                console.log('API key saved to localStorage');
+            } else {
+                this.clearApiKey();
+            }
         } catch (error) {
-            console.error('Could not save access token:', error);
+            console.warn('Could not save API key to local storage:', error);
         }
     },
-    
-    loadAccessToken() {
+
+    loadApiKey() {
         try {
-            const token = localStorage.getItem(CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
-            const expiryTime = localStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY);
-            
-            if (!token || !expiryTime) {
-                return null;
-            }
-            
-            // Check if token has expired
-            if (Date.now() >= parseInt(expiryTime)) {
-                console.log('Stored access token has expired');
-                this.clearAccessToken();
-                return null;
-            }
-            
-            return token;
+            const apiKey = localStorage.getItem(CONFIG.STORAGE_KEYS.API_KEY);
+            console.log('API key loaded from localStorage:', apiKey ? 'Yes' : 'No');
+            return apiKey;
         } catch (error) {
-            console.warn('Could not load access token:', error);
+            console.warn('Could not load API key from local storage:', error);
             return null;
         }
     },
-    
-    clearAccessToken() {
+
+    clearApiKey() {
         try {
-            localStorage.removeItem(CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
-            localStorage.removeItem(CONFIG.STORAGE_KEYS.TOKEN_EXPIRY);
+            localStorage.removeItem(CONFIG.STORAGE_KEYS.API_KEY);
+            console.log('API key cleared from localStorage');
         } catch (error) {
-            console.warn('Could not clear access token:', error);
-        }
-    },
-    
-    // Email hint for silent re-authentication
-    saveLastSignedInEmail(email) {
-        try {
-            localStorage.setItem(CONFIG.STORAGE_KEYS.LAST_SIGNED_IN_EMAIL, email);
-        } catch (error) {
-            console.warn('Could not save last signed in email:', error);
-        }
-    },
-    
-    getLastSignedInEmail() {
-        try {
-            return localStorage.getItem(CONFIG.STORAGE_KEYS.LAST_SIGNED_IN_EMAIL);
-        } catch (error) {
-            console.warn('Could not get last signed in email:', error);
-            return null;
-        }
-    },
-    
-    clearLastSignedInEmail() {
-        try {
-            localStorage.removeItem(CONFIG.STORAGE_KEYS.LAST_SIGNED_IN_EMAIL);
-        } catch (error) {
-            console.warn('Could not clear last signed in email:', error);
+            console.warn('Could not clear API key from local storage:', error);
         }
     }
 };
