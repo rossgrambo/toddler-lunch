@@ -11,7 +11,6 @@ const CONFIG = {
     // Home Secrets Service Configuration
     HOME_SECRETS: {
         BASE_URL: 'https://secretserver.local', // Your local secret service URL
-        CLIENT_ID: 'toddler-lunch-app', // Client ID for this app
         // Redirect URI will be dynamically determined based on current URL
         get REDIRECT_URI() {
             // Auto-detect the redirect URI based on current page

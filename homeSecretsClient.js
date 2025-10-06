@@ -5,7 +5,6 @@ class HomeSecretsClient {
         this.refreshToken = null;
         this.tokenExpiryTime = null;
         this.isSignedIn = false;
-        this.clientId = null;
         this.redirectUri = null;
         this.baseUrl = null; // Will be set from config
         this.codeVerifier = null;
@@ -17,7 +16,6 @@ class HomeSecretsClient {
      */
     async initialize(config) {
         this.baseUrl = config.BASE_URL;
-        this.clientId = config.CLIENT_ID;
         this.redirectUri = config.REDIRECT_URI;
         
         // Handle API key from URL and localStorage
@@ -41,7 +39,6 @@ class HomeSecretsClient {
         
         console.log('Initializing Home Secrets Client...');
         console.log('Base URL:', this.baseUrl);
-        console.log('Client ID:', this.clientId);
         console.log('Redirect URI:', this.redirectUri);
         console.log('Current URL:', window.location.href);
         console.log('URL search params:', window.location.search);
