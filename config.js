@@ -10,7 +10,11 @@
 const CONFIG = {
     // Home Secrets Service Configuration
     HOME_SECRETS: {
-        BASE_URL: 'https://secretserver.local', // Your local secret service URL
+        // Dynamically match the protocol of the current page
+        get BASE_URL() {
+            const protocol = window.location.protocol; // 'http:' or 'https:'
+            return `${protocol}//localsecrets.rossgrambo.com`;
+        },
         // Redirect URI will be dynamically determined based on current URL
         get REDIRECT_URI() {
             // Auto-detect the redirect URI based on current page
