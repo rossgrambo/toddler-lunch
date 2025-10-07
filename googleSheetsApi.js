@@ -92,18 +92,90 @@ class GoogleSheetsAPI {
         // Check token status every 10 minutes and refresh if needed
         this.silentAuthInterval = setInterval(async () => {
             try {
-                if (homeSecretsClient.isUserSignedIn()) {
+                console.log('Background token refresh check...');
+                
+                // Use the new silent refresh method that handles expiration gracefully
+                const refreshSuccess = await homeSecretsClient.refreshTokenSilently();
+                
+                if (refreshSuccess) {
+                    console.log('Background token refresh successful');
                     await this.updateSignInStatus();
+                    // Hide any session expiry notification if it was shown
+                    this.hideSessionExpiryNotification();
                 } else {
-                    console.log('Home secrets client indicates user is no longer signed in');
+                    console.log('Background token refresh failed - user needs to re-authenticate');
+                    // Don't redirect to OAuth automatically - just update local state
+                    // The user will see they need to sign in again when they next interact with the app
                     this.isSignedIn = false;
                     this.accessToken = null;
                     gapi.client.setToken(null);
+                    
+                    // Show a subtle, non-intrusive notification
+                    this.showSessionExpiryNotification();
                 }
             } catch (error) {
-                console.error('Error during token refresh check:', error);
+                console.error('Error during background token refresh:', error);
+                // On error, just update local state without redirecting
+                this.isSignedIn = false;
+                this.accessToken = null;
+                gapi.client.setToken(null);
+                this.showSessionExpiryNotification();
             }
         }, 10 * 60 * 1000); // 10 minutes
+    }
+
+    showSessionExpiryNotification() {
+        // Only show notification if we're not already on the auth screen
+        if (document.getElementById('authSection').style.display !== 'flex') {
+            let notification = document.getElementById('sessionExpiryNotification');
+            
+            if (!notification) {
+                // Create the notification element
+                notification = document.createElement('div');
+                notification.id = 'sessionExpiryNotification';
+                notification.innerHTML = `
+                    <div style="
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: #fff3cd;
+                        color: #856404;
+                        padding: 12px 16px;
+                        border: 1px solid #ffeaa7;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                        z-index: 1003;
+                        max-width: 300px;
+                        font-size: 14px;
+                        cursor: pointer;
+                    ">
+                        <strong>Session Expired</strong><br>
+                        Your session has expired. Click here to sign in again.
+                        <div style="margin-top: 8px; font-size: 12px; opacity: 0.8;">
+                            You can continue viewing, but actions will require re-authentication.
+                        </div>
+                    </div>
+                `;
+                
+                notification.addEventListener('click', () => {
+                    // When clicked, show the auth section
+                    if (window.app) {
+                        window.app.showAuthSection();
+                    }
+                });
+                
+                document.body.appendChild(notification);
+            }
+            
+            notification.style.display = 'block';
+        }
+    }
+
+    hideSessionExpiryNotification() {
+        const notification = document.getElementById('sessionExpiryNotification');
+        if (notification) {
+            notification.style.display = 'none';
+        }
     }
 
     clearTokenRefresh() {
@@ -172,7 +244,17 @@ class GoogleSheetsAPI {
 
     async ensureSignedIn() {
         if (!this.isUserSignedIn()) {
-            await this.signIn();
+            // Try silent refresh first before prompting for sign-in
+            console.log('User not signed in, attempting silent refresh...');
+            const refreshSuccess = await homeSecretsClient.refreshTokenSilently();
+            
+            if (refreshSuccess) {
+                console.log('Silent refresh successful, updating sign-in status');
+                await this.updateSignInStatus();
+            } else {
+                console.log('Silent refresh failed, user needs to sign in');
+                throw new Error('Authentication required - please sign in again');
+            }
         } else {
             // Ensure we have the latest token
             await this.updateSignInStatus();

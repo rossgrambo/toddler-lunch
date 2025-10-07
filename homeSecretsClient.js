@@ -98,8 +98,24 @@ class HomeSecretsClient {
             console.log('Token endpoint response status:', response.status);
             
             if (response.status === 401 || response.status === 403) {
-                // No valid token available
-                console.log('No valid token available (401/403 response)');
+                // No valid token available - try to refresh if we have a refresh token
+                console.log('No valid token available (401/403 response) - attempting refresh...');
+                if (this.refreshToken && !this._refreshInProgress) {
+                    this._refreshInProgress = true;
+                    try {
+                        const refreshed = await this.refreshAccessToken();
+                        if (refreshed) {
+                            console.log('Successfully refreshed token after 401/403');
+                            this._refreshInProgress = false;
+                            // Don't retry checkTokenValidity to avoid recursion - just return true
+                            // since refreshAccessToken already updated our token state
+                            return true;
+                        }
+                    } finally {
+                        this._refreshInProgress = false;
+                    }
+                }
+                console.log('Unable to refresh token, clearing state');
                 this.clearTokenState();
                 return false;
             }
@@ -481,6 +497,61 @@ class HomeSecretsClient {
     }
 
     /**
+     * Refresh token silently for background operations
+     * Returns true if refresh succeeded, false if user needs to re-authenticate
+     */
+    async refreshTokenSilently() {
+        console.log('Attempting silent token refresh...');
+        
+        // Prevent multiple simultaneous refresh attempts
+        if (this._silentRefreshInProgress) {
+            console.log('Silent refresh already in progress, waiting...');
+            return new Promise((resolve) => {
+                const checkInterval = setInterval(() => {
+                    if (!this._silentRefreshInProgress) {
+                        clearInterval(checkInterval);
+                        resolve(this.isSignedIn);
+                    }
+                }, 100);
+            });
+        }
+        
+        this._silentRefreshInProgress = true;
+        
+        try {
+            // First try to get a fresh token from the server (handles cross-tab refresh)
+            const serverHasToken = await this.checkTokenValidity();
+            if (serverHasToken) {
+                console.log('Server provided fresh token');
+                this.isSignedIn = true;
+                return true;
+            }
+            
+            // If server doesn't have a valid token, try to refresh using our refresh token
+            if (this.refreshToken) {
+                console.log('Attempting refresh with stored refresh token...');
+                const refreshed = await this.refreshAccessToken();
+                if (refreshed) {
+                    console.log('Silent refresh succeeded');
+                    this.isSignedIn = true;
+                    return true;
+                }
+            }
+            
+            console.log('Silent refresh failed - user needs to re-authenticate');
+            this.clearTokenState();
+            return false;
+            
+        } catch (error) {
+            console.error('Error during silent token refresh:', error);
+            this.clearTokenState();
+            return false;
+        } finally {
+            this._silentRefreshInProgress = false;
+        }
+    }
+
+    /**
      * Get current access token, refreshing if necessary
      */
     async getAccessToken() {
@@ -493,7 +564,7 @@ class HomeSecretsClient {
         // Check if token needs refresh
         if (this.isTokenExpired()) {
             console.log('Access token expired, refreshing...');
-            const refreshed = await this.refreshAccessToken();
+            const refreshed = await this.refreshTokenSilently();
             if (!refreshed) {
                 this.signOut();
                 throw new Error('Unable to refresh access token - please sign in again');

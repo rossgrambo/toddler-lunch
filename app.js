@@ -549,8 +549,14 @@ class MealPlanningApp {
             this.hideLoading();
         } catch (error) {
             console.error('Error loading meals:', error);
-            this.showError('Failed to load meals. Please check your Google Sheets setup.');
             this.hideLoading();
+            
+            // Use the new auth error handler
+            if (error.message && error.message.includes('Authentication required')) {
+                this.handleAuthError(error);
+            } else {
+                this.showError('Failed to load meals. Please check your Google Sheets setup.');
+            }
         }
     }
 
@@ -958,8 +964,14 @@ class MealPlanningApp {
             this.hideLoading();
         } catch (error) {
             console.error('Error replacing item:', error);
-            this.showError('Failed to replace item. Please try again.');
             this.hideLoading();
+            
+            // Use the new auth error handler
+            if (error.message && error.message.includes('Authentication required')) {
+                this.handleAuthError(error);
+            } else {
+                this.showError('Failed to replace item. Please try again.');
+            }
         }
     }
 
@@ -1101,7 +1113,13 @@ class MealPlanningApp {
             this.goToNextPendingMeal();
         } catch (error) {
             console.error('Error completing meal:', error);
-            this.showError('Failed to complete meal. Please try again.');
+            
+            // Use the new auth error handler
+            if (error.message && error.message.includes('Authentication required')) {
+                this.handleAuthError(error);
+            } else {
+                this.showError('Failed to complete meal. Please try again.');
+            }
         }
     }
 
@@ -1123,7 +1141,13 @@ class MealPlanningApp {
             this.goToNextPendingMeal();
         } catch (error) {
             console.error('Error skipping meal:', error);
-            this.showError('Failed to skip meal. Please try again.');
+            
+            // Use the new auth error handler
+            if (error.message && error.message.includes('Authentication required')) {
+                this.handleAuthError(error);
+            } else {
+                this.showError('Failed to skip meal. Please try again.');
+            }
         }
     }
 
@@ -1180,6 +1204,23 @@ class MealPlanningApp {
         const errorElement = document.getElementById('errorMessage');
         document.getElementById('errorText').textContent = message;
         errorElement.style.display = 'block';
+    }
+
+    handleAuthError(error) {
+        console.error('Authentication error:', error);
+        
+        if (error.message && error.message.includes('Authentication required')) {
+            // Show auth section instead of a generic error
+            this.showAuthSection();
+            this.showAuthError('Your session has expired. Please sign in again.');
+            
+            // Clear token refresh to prevent further background attempts
+            sheetsAPI.clearTokenRefresh();
+            this.hideSilentAuthIndicator();
+        } else {
+            // Handle other types of errors
+            this.showError(error.message || 'An error occurred. Please try again.');
+        }
     }
 
     hideError() {
@@ -1680,5 +1721,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     app = new MealPlanningApp();
+    // Make app globally accessible for notifications
+    window.app = app;
     app.init();
 });
